@@ -1,0 +1,253 @@
+= U-Boot on Raspberry
+Itachi
+
+Though it's not very common, it is sometimes desirable to replace the original Raspberry's bootloader with something more customizable like: https://www.denx.de/wiki/U-Boot[Das U-Boot]. Having your handcrafted bootloader on an embedded system has a number of advantages:
+
+* booting from other sources, like: network or USB,
+* firmware upgrade,
+* getting back to fail-safe state after messing up something,
+* flexible kernel select,
+* virtually anything you would want to do before the OS starts.
+
+I had a hard time looking for some good knowledge source covering this topic. The only webpage that gave me lots of hints was https://elinux.org/RPi_U-Boot, though it had some outdated information. Eventually, I've managed to achieve the desired result, using the above source and going through many trials and errors.
+
+== Tools and stuff
+
+Here's a list of things I was using during the development and testing:
+
+* *Raspberry Pi Zero W* - this is the target,
+* *SD card with Raspbian* - something to actually boot,
+* *Lubuntu* - host machine where U-Boot is built,
+* *USB to UART adapter* - even though U-Boot supports HDMI and USB, it's more convenient to connect directly to Raspberry's serial port.
+
+And that will be all for the things you need. Let's dive in!
+
+== Preparing the host machine
+
+As mentioned earlier, I'm using Lubuntu to do all the cross compilation work. If you've never cross compiled anything for the ARM architecture, you'd probably need to install the toolchain along with build tools. Fortunately, it's pretty easy on Ubuntu based systems.
+
+=== Downloading toolchain
+
+ $ sudo apt install git build-essential crossbuild-essential-armhf
+
+It might be that the above set of packages won't be sufficient for your setup. In that case, just install what's missing, there's no magic here.
+
+=== Cloning U-Boot
+
+The best way to get the newest U-Boot is of course GitHub.
+
+ $ git clone -b master --depth 1 https://github.com/u-boot/u-boot.git
+ $ cd u-boot
+
+The additional arguments will save you lots of time, as they instruct git to clone only the tip of the master branch.
+
+And yeah, that's all!
+
+=== Building U-Boot
+
+This step is pretty easy and shouldn't cause troubles. Just make sure you set appropriate cross compilation environment variable and you are good to go. If your Raspberry model is different than mine, you have to use another defconfig. You can peek what defconfigs are available by listing contents of `configs` directory. What if you select a wrong one? Well, literally nothing, as U-Boot simply won't start.
+
+ $ export CROSS_COMPILE=arm-linux-gnueabihf-
+ $ make rpi_0_w_defconfig
+ $ make -j8 -s
+
+The compilation should be quite fast, it really depends on your CPU. When it's finished without errors, you will find `u-boot.bin` in the current directory.
+
+== Before we commence primary ignition
+
+At this moment we have everything to write the U-Boot binary to the SD card and set it as the default boot target. But before we proceed, there are a bunch of important things I feel obliged to explain.
+
+=== Enable UART on Raspberry
+
+In order to communicate with U-Boot freely, we have to enable UART on Raspberry. This is easy, you just need to edit the `config.txt` file living on the //boot// partition of the SD card, and at the end of the file add the following line:
+
+ enable_uart=1
+
+=== Know your command line
+
+When Raspberry boots the usual way, the `config.txt` is parsed and appropriate options are appended to kernel's //command line//. They are not copied 1:1, though. That would be too simple, right? For example, after we've enabled UART in the previous section, the cmdline will receive a new option: `8250.nr_uarts=1`.
+
+[NOTE]
+For the curious: *8250* - this is a kernel module named "8250", *nr_uarts* - this is a module's option, and *1* is a new value of this option. This is the same as invoking: *modprobe 8250 nr_uarts=1*
+
+Since we are moving to U-Boot, it's WE who have to take care of providing appropriate command line options to kernel. Ouch... This can be done in two ways, the first one is described here, and the other one (experimental) will be discussed later.
+
+The easiest, yet not so flexible method, is to peek the actual command line of the running system, and simply use it in U-Boot as the kernel's command line. Say you are happy with your current Raspberry's configuration and you don't expect it to change soon. If that so, you can simply boot your Raspbian and execute the following:
+
+ $ cat /proc/cmdline
+
+This will print out the current command line that was given to the kernel. Save it somewhere, we will need that soon.
+
+As I said earlier, this method is "permanent", meaning that U-Boot doesn't know about the config file existence, and will boot the kernel with the command line provided by you. *It doesn't mean you can remove this file!* The Raspberry's CPU still uses `config.txt`, for example to enable UART or select image to boot.
+
+== Commence primary ignition
+
+We are ready to write U-Boot to the SD card and set it as the boot source. To do that, copy `u-boot.bin` built earlier, straight to the //boot// partition of the SD card. Now edit `config.txt` again and append the following line:
+
+ kernel=u-boot.bin
+
+Put the SD card to Raspberry, connect the USB <-> UART adapter, open any serial terminal and set the communication parameters as follows:
+
+* Baudrate: 115200
+* Data bits: 8
+* Stop bits: 1
+* Parity: None
+* Flow control: None
+
+Power on Raspberry, and after a few seconds U-Boot output should appear on your terminal. Aaaaannnd... It won't boot. Don't worry, I would be surprised if it would. We need to perform a few more extra steps to boot the kernel.
+
+[TIP]
+If you don't see anything on terminal, make sure you set up the communication parameters correctly and UART is enabled. If you're sure your communication settings are okay, that could mean you've messed up U-Boot build. Did you use correct defconfig? Did you set CROSS_COMPILE env? The compilation should give 0 warnings and 0 errors.
+
+
+== The extra steps
+
+There are a couple of things we have to fix in U-Boot so it can boot the kernel properly:
+
+* Device Tree file is wrong,
+* kernel's boot arguments are not set,
+* U-Boot can't find the image to boot automatically.
+
+I'm not entirely sure from where these inconveniences come, but I can assure you that once they are resolved, the rest is a pure fun! Let's deal with them one by one. From now on I will be operating only in the U-Boot shell.
+
+=== Fixing Device Tree file
+
+Raspbian's kernel requires a Device Tree file to boot properly. This file must be loaded into RAM prior to booting, and the loading address shall be given to kernel. The DT file is read from the SD card, and its name is set in `fdtfile` env variable. You can print out the variable like this:
+
+ U-Boot> env print fdtfile
+ fdtfile=bcm2835-rpi-zero-w.dtb
+
+If you now would take a look at the SD card's content, you will realize that this file doesn't exist. We have another one instead: `bcm2708-rpi-zero-w.dtb` You know what to do. You have to change the `fdtfile` env so it points to the existing file.
+
+ U-Boot> setenv fdtfile bcm2708-rpi-zero-w.dtb
+
+Cool! First thing fixed!
+
+=== Fixing kernel boot args
+
+For most of the time, kernel needs some additional arguments, let it be location of the root file system, or configuration of the device. These additional parameters are called "command line" or simply "boot arguments (args)". In U-Boot, there's a dedicated env variable called *bootargs* that will be automatically passed to the kernel on boot.
+
+Do you remember the command line we've saved earlier? It's time to use it. Simply set the `bootargs` env var to the same value you've obtained from /proc/cmdline. This could look like this:
+
+ U-Boot> setenv bootargs console=ttyS0,115200 console=tty1 root=/dev/mmcblk0p2 rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait
+
+Don't copy mine, use your own!
+
+Okay, second thing fixed!
+
+=== Fixing kernel image
+
+The last thing to do is to point U-Boot to the valid kernel image that can be actually booted. The kernel image is on SD card, but we need it inside RAM, so it's time to do some little copying.
+
+In order to copy anything from an external source like an SD card or a USB flash drive, the device must be first selected. Since we need to access our SD card, the right command to select it as a source is:
+
+ U-Boot> mmc dev 0
+
+What we've done was selecting an MMC device at index 0. Raspberry has only one SD card slot, thus "0" is always a valid option. In contrast, USB can have multiple flash drives connected to it, and each will have a different index; it's up to you to select the correct one. You can list the available USB devices with a simple command:
+
+ U-Boot> usb info
+
+Let's get back on the track. After you've selected the proper MMC device, you can now load any file from it with a simple command. In this particular moment we are only interested in the kernel image and the DT file. Both of them has to be put somewhere into RAM to be usable. Fortunately, the correct load addresses are already set in U-Boot.
+
+The right command to use is *fatload* and it does exactly what it means - it loads a file from a FAT partition.
+
+ U-Boot> fatload mmc 0:1 ${kernel_addr_r} kernel.img
+ U-Boot> fatload mmc 0:1 ${fdt_addres} ${fdtfile}
+
+The syntax of the command is simple:
+
+ fatload [device type] [device index]:[partition] [load address] [source file]
+
+In the first command we copy `kernel.img` to the address stored in the `kernel_addr_r` env variable. The file we copy should be available on the 1st partition of the MMC 0 device. MMC 0 always points to an SD card slot on a Raspberry board, and the first partition is the //boot// partition. If your SD card is partitioned differently, you have to figure out the numbers on your own.
+
+The second command works exactly the same and copies the Device Tree file.
+
+== Boot!
+
+We are finally ready to boot the kernel. You can do this using the command below, but don't do this yet:
+
+ U-Boot> bootz ${kernel_addr_r} - ${fdt_addr}
+
+`bootz` is a command that boots a gzipped kernel image. The additional parameters we pass to it are:
+
+* `${kernel_addr_r}` - env variable with a memory address of where we loaded the kernel image,
+* `-` - boot without initrd,
+* `${fdt_addr}` - env variable with a memory address of where we loaded the Device Tree blob file.
+
+//"What's the f... point of doing this manually, shouldn't bootloader take care of this?"// - you might think, and you are absolutely right. Let's force this lump to do something productive.
+
+ U-Boot> setenv rpi_boot 'fatload mmc 0:1 ${kernel_addr_r} kernel.img; fatload mmc 0:1 ${fdt_addr} ${fdtfile}; bootz ${kernel_addr_r} - ${fdt_addr}'
+ U-Boot> setenv bootcmd run rpi_boot
+ U-Boot> saveenv
+
+The first command will set a new *rpi_boot* env variable to the provided string. As you see in the string, we simply concatenated previous commands with a semicolon. The second line sets a new value for *bootcmd* variable, and the last line persists environment, meaning that all the variables we've set so far will be available after restart.
+
+Here's what will happen after the RPi is powered: When U-Boot's auto-start won't be interrupted by a key, it will run the default *boot* command. This command simply executes *run bootcmd* (//run// treats arguments like a typical command), and that eventually executes *run rpi_boot*.
+
+You can now try if this works either by disconnecting power from RPi or by executing *reset* command.
+
+== Extras
+
+If you've successfully set up U-Boot and booted your RPi, congratulations! You can now do a few more cool things with it.
+
+=== Dynamic kernel cmdline
+
+Do you remember the step in which I asked you to hardcode the previously backed up cmdline for the kernel? This is obviously regression, as we can't flexibly change RPi's configuration now. The cmdline is generated dynamically during RPi's early boot stages. Options contained in //config.txt// are parsed, the cmdline is created and passed to the kernel. But we've replaced kernel with U-Boot, right? Common sense tells us that not the kernel but U-Boot receives the cmdline now. It'd be nice of it to pass it to the kernel, but it doesn't.
+
+I didn't find how to officially read additional arguments passed to U-Boot, but I've manage to find an address in memory where they are stored.
+
+[NOTE]
+This is experimental and I can't guarantee it will work for you.
+
+Execute the below command in U-Boot's shell:
+
+ U-Boot> md.w 0x710 128
+
+This will print 128 words starting from address 0x710. In the ASCII column you should see something familiar, something that looks like a kernel's command line.
+
+----
+00000710: 6f63 6568 6572 746e 705f 6f6f 3d6c 4d31    coherent_pool=1M
+00000720: 3820 3532 2e30 726e 755f 7261 7374 313d     8250.nr_uarts=1
+00000730: 7320 646e 625f 6d63 3832 3533 652e 616e     snd_bcm2835.ena
+00000740: 6c62 5f65 6f63 706d 7461 615f 736c 3d61    ble_compat_alsa=
+00000750: 2030 6e73 5f64 6362 326d 3338 2e35 6e65    0 snd_bcm2835.en
+00000760: 6261 656c 685f 6d64 3d69 2031 6362 326d    able_hdmi=1 bcm2
+00000770: 3037 5f38 6266 662e 7762 6469 6874 313d    708_fb.fbwidth=1
+00000780: 3832 2030 6362 326d 3037 5f38 6266 662e    280 bcm2708_fb.f
+00000790: 6862 6965 6867 3d74 3237 2030 6362 326d    bheight=720 bcm2
+000007a0: 3037 5f38 6266 662e 7362 6177 3d70 2031    708_fb.fbswap=1
+000007b0: 6d73 6373 3539 7878 6d2e 6361 6461 7264    smsc95xx.macaddr
+000007c0: 423d 3a38 3732 453a 3a42 3636 453a 3a44    =B8:27:EB:66:ED:
+000007d0: 4337 7620 5f63 656d 2e6d 656d 5f6d 6162    7C vc_mem.mem_ba
+000007e0: 6573 303d 3178 6365 3030 3030 2030 6376    se=0x1ec00000 vc
+000007f0: 6d5f 6d65 6d2e 6d65 735f 7a69 3d65 7830    _mem.mem_size=0x
+00000800: 3032 3030 3030 3030 2020 6f63 736e 6c6f    20000000  consol
+00000810: 3d65 7474 5379 2c30 3131 3235 3030 6320    e=ttyS0,115200 c
+00000820: 6e6f 6f73 656c 743d 7974 2031 6f72 746f    onsole=tty1 root
+00000830: 503d 5241 5554 4955 3d44 3432 6434 3032    =PARTUUID=244d20
+00000840: 6337 302d 2032 6f72 746f 7366 7974 6570    7c-02 rootfstype
+00000850: 653d 7478 2034 6c65 7665 7461 726f 643d    =ext4 elevator=d
+00000860: 6165 6c64 6e69 2065 7366 6b63 722e 7065    eadline fsck.rep
+00000870: 6961 3d72 6579 2073 6f72 746f 6177 7469    air=yes rootwait
+00000880: 0000 e803 0000 0100 6f62 746f 6f6c 6461    ........bootload
+----
+
+This is exactly what we want! This is the command line that should be received by kernel, but instead it's received by U-Boot. It'd be nice to have it as an env variable, so it could be used for booting. Let's do this:
+
+ U-Boot> setexpr.s bootargs *0x710
+
+This command will set the env variable (*bootargs*) to the result of the expression; the expression itself shall be treated as a string (setexpr*.s*). Since the expression is a memory pointer, when treated like a string, it will contain all characters starting from address 0x710 until the 0x00 byte. Let's check the result:
+
+
+ U-Boot> env print bootargs
+ bootargs=coherent_pool=1M 8250.nr_uarts=1 snd_bcm2835.enable_compat_alsa=0 snd_bcm2835.enable_hdmi=1 bcm2708_fb.fbwidth=1280 bcm2708_fb.fbheight=720 bcm2708_fb.fbswap=1 smsc95xx.macaddr=B8:27:EB:66:ED:7C vc_mem.mem_base=0x1ec00000 vc_mem.mem_size=0x20000000  console=ttyS0,115200 console=tty1 root=PARTUUID=244d207c-02 rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait
+
+Cool! It's time to update your boot command:
+
+ U-Boot> setenv boot_rpi 'setexpr.s bootargs *0x710; mmc dev 0; fatload mmc 0:1 ${kernel_addr_r} kernel.img; fatload mmc 0:1 ${fdt_addr} ${fdtfile}; bootz ${kernel_addr_r} - ${fdt_addr}'
+ U-Boot> saveenv
+
+Thanks to this, your kernel will always boot with proper command line options. You can now use config.txt again!
+
+[NOTE]
+This won't work for the *dtoverlay* options in config.txt, though. Device Tree overlays are applied differently. This is of course possible in U-Boot, but requires extra work. I will try to find some time to describe the process.

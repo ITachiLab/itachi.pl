@@ -1,0 +1,6 @@
+name: tech-blog
+title: Tech Blog
+version: ~
+nav:
+- modules/ROOT/nav.adoc
+- modules/u-boot-on-raspberry/nav.adoc

@@ -1,0 +1,7 @@
+= Tech Blog
+Itachi
+:description: This is a technical blog where you can find articles and other technical related stuff.
+
+Welcome to my Tech Blog! This is a space, where you can find various articles describing things that I found interesting or worth noting for a future use.
+
+Feel free to mail me at `sdbg-aknf@hszbgh.ok` (ROT-1 all letters) if you have questions or suggestions that will help me improve my articles.
