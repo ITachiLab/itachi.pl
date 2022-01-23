@@ -1,0 +1,1 @@
+* xref:stm32-linker-script.adoc[Linker Script for STM32]

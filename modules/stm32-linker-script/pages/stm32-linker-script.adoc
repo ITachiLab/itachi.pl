@@ -1,0 +1,458 @@
+= Linker Script for STM32 from scratch
+Itachi
+:description: This article describes writing a functional linker script for STM32 microcontroller.
+:docdate: 2022-01-23
+
+In this article I'm going to show you how you can write a simple yet functional linker script for STM32 microcontroller. The linker script we will create can't compete with the linker script provided by the manufacturer, and it's not a purpose of this article to create something better. The goal is to understand how these linker scripts are created and to see that it isn't impossible to create one by yourself.
+
+This article describes three main points:
+
+* how to write a simple linker script from scratch,
+* how to do this for STM32 microcontrollers,
+* how to avoid using vendor's files (headers, codes etc.)
+
+This is something new for me as well, I've always used scripts provided by vendor, and yesterday I decided to do this by myself. Partially because I like raping my brain, but mostly to learn something new. The article will guide you step by stop from creating the simplest, barely working linker script, to fully fledged Linker Script That Rocks.
+
+I decided to focus on linker scripts for microcontrollers, because they require good understanding of the target platform and gives you opportunity to decide about everything (mostly). You need to know memory addresses and what to place at specific locations. Don't worry, I will explain everything.
+
+== Tools preparation
+
+You only need two things to start: ARM Toolchain and your favourite text editor. The newest ARM toolchain can be downloaded directly from https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm/downloads[ARM site].
+
+If you are lucky and you work on Mac or Linux, you can simply extract the toolchain anywhere and point it temporarily in a shell's path:
+
+ $ export PATH=/your/toolchain/bin:$PATH
+
+Now you should be able to execute all toolchain's tools prefixed with: `arm-none-eabi-`.
+
+== Knowledge preparation 
+
+Before we can start, there's one more thing we need to know: memory layout of the target device. You can't write linker script without knowing where to put your code, where to put variables etc. The memory layout differs between architectures and devices, so you must grab a datasheet for your microcontroller and find that information. For STM32F103RBT6 it can be found in the https://www.st.com/resource/en/reference_manual/cd00171190-stm32f101xx-stm32f102xx-stm32f103xx-stm32f105xx-and-stm32f107xx-advanced-armbased-32bit-mcus-stmicroelectronics.pdf[reference manual] on page 53 (for SRAM) and page 54 (for flash).
+
+* SRAM starts at address *0x2000 0000*
+* Flash starts at address *0x0800 0000*
+
+This essentially means that you must put your code at address `0x08000000` and all your variables at `0x20000000`. Don't worry, I will explain later.
+
+I almost forgot. You also need to know how particular microcontroller boots. For most of the time you are responsible for setting up the stack pointer at device boot time and this is done differently for different architectures. The recipe is quite straightforward: find how to set up stack pointer, and set it up to top of the SRAM memory. It's logical, the stack always grows downwards so it has to have space to grow.
+
+If you take a look at page 61, you will find a decent description of how STM32 boots up, and how it sets up the stack pointer.
+
+[quote]
+After this startup delay has elapsed, the CPU fetches the top-of-stack value from address `0x00000000`, then starts code execution from the boot memory starting from `0x00000004`.
+
+Excellent, more useful things to write down.
+
+* Stack initializer: *0x0000 0000*
+* Entry point: *0x0000 0004*
+
+There's also one more important thing you need to know about STM32, and this is explained on the page 61 too. When the CPU reads from address `0x00000000` and further, it actually might access different memories, depending on a selected boot mode. This is called "memory mapping". By default, STM32 boots from flash, so it maps memory region `0x08000000` to `0x00000000`; the flash memory is now accessible both from its original address and `0x0000 0000`. This allows CPU to start reading instructions directly from flash.
+
+Having the above information in mind, and knowing that we would like to boot from flash, we can already calculate appropriate addresses for stack initializer and entry point:
+
+* Stack initializer: *0x0800 0000*
+* Entry point: *0x0800 0004*
+
+[CAUTION]
+The documentation is a little misleading. The entry point address is not where execution will start. In fact, it should contain the address where CPU should jump to start the execution. In other words, dword from `0x00000000` will be loaded to SP register, and dword from `0x00000004` will be loaded to PC register.
+
+== Stupidly Simple Linker Script (SSLS)
+
+As promised on the beginning, our first goal is to write ANYTHING that works. So let's do this! The simplest linker script can consist of a single block called *SECTIONS*. In this block you define output sections that will be placed in the binary file. The most important sections are:
+
+* `.text` - your code,
+* `.data` - your initialized data (global and static variables),
+* `.bss` - you uninitialized data (global and static variables).
+
+For our first SSLS (stupidly simple linker script), we will use only the `.text` section for the code. No data, no variables, just pure code. Without more talking, let's create a file called `script.ld` and put something like this to it:
+
+----
+SECTIONS
+{
+    .text : { *(.text) }
+}
+----
+
+The above script tells linker to:
+
+- Create a `.text` section (the leftmost expression).
+- Take all `.text` sections from all object files (the expression in curly braces).
+- Put them to the section created in step 1.
+
+That's pretty simple, isn't it? But we are missing something, even a few somethings. We defined the code section, but we didn't specify where it should be placed. In the current form, the code will be placed at address `0x0`, but from what we have read earlier, it should bo loaded at address `0x08000000`, right? Right. Let's fix this.
+
+----
+SECTIONS
+{
+    . = 0x08000000;
+    .text : { *(.text) }
+}
+----
+
+The dot symbol in linker scripts is a location counter. It starts from `0x0` and can be modified either directly, as in the example above, or indirectly by adding sections, constants etc. So if you would read the location counter value after the output section `.text` entry, it will be `0x08000000` plus the size of the added section. If you do not specify the address of an output section in some other way (other ways are described later), the address is set from the current value of the location counter.
+
+Alright, we have our code at valid location, that's nice. If only CPU knows where the code begins and where the stack starts...
+
+----
+ENTRY(main);
+
+SECTIONS
+{
+    . = 0x08000000;
+    LONG(0x20005000); <1>
+    LONG(main | 1); <2>
+    .text : { *(.text) }
+}
+----
+
+I think I owe you tiny explanation.
+
+If you remember, when STM32 boots, it reads two dwords from the boot memory (flash in our case); the first is the initial stack pointer and the second is address where the execution should start.
+
+<1> Instructs linker to place this raw 4-byte value in the output binary. Why this value in particular? SRAM starts at `0x20000000`, STM32 has 20 kBs (`0x5000`) of SRAM memory, `0x20000000 + 0x5000 = 0x20005000` = top of the SRAM memory.
+
+<2> Outputs address of `main` function to the binary file. As you see, the address is OR'ed with 1 to produce odd value.
+
+[NOTE]
+In ARM architecture, odd function address tells CPU to switch to Thumb mode on branch to this address, as opposed to even addresses, denoting ARM mode. Not all branch instructions causes the mode to switch. `B` or `BL` instruction branches without switching the mode; `BX` branches with additional mode switch accordingly to the last bit of an address; `BLX` branches and always switches the mode. You can read more on the http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0204j/Cihfddaf.htmlm[dedicated page].
+
+_STM32F103RBT6_ is based on Cortex-M3 that support only Thumb instructions, this is why we tell it on the start to switch to Thumb mode. This is normally transparent to a developer, compiler either uses `BL` instruction to keep the current mode, or changes the calling addresses automatically. The reason why we do this manually here is because we create SSLS. This will become clearer when we upgrade SSLS to SLS (simple linker script).
+
+I also added another new thing: `ENTRY(main)`. This tells linker what symbol should be used as the entry point of the program. This also prevents `.text` section containing main function from being garbage collected by linker.
+
+Okay, we have a linker script, that's nice, but we also need to have something to link. Let's create a simple code that will light a green LED on Nucleo board.
+
+[,c]
+----
+#include "registers.h"
+
+void main(void) {
+    RCC->APB2ENR |= (1 << RCC_APB2ENR_IOPAEN);
+    GPIOA->CRL |= (0b10 << GPIOA_CRL_MODE5);
+    GPIOA->CRL &= ~(0b11 << GPIOA_CRL_CNF5);
+    GPIOA->BSRR = (1 << 5);
+
+    while (1);
+}
+----
+
+The mysterious `registers.h` file is a helper header containing registers' addresses. I've created it from information found in the reference manual. I simply defined a structure per group of registers, and then defined a pointer to the structure using the base address. Thanks to structures, I don't need to perform manual pointer arithmetic, because it's done automagically when accessing a structure's field.
+
+[,c]
+----
+#ifndef LINKER_TUTORIAL_REGISTERS_H
+#define LINKER_TUTORIAL_REGISTERS_H
+
+#include <stdint.h>
+
+typedef struct {
+    uint32_t CR;
+    uint32_t CFGR;
+    uint32_t CIR;
+    uint32_t APB2RSTR;
+    uint32_t APB1RSTR;
+    uint32_t AHBENR;
+    uint32_t APB2ENR;
+    uint32_t APB1ENR;
+    uint32_t BDCR;
+    uint32_t CSR;
+} RCC_Reg;
+
+#define RCC ((RCC_Reg*) 0x40021000)
+#define RCC_APB2ENR_IOPAEN 2
+
+typedef struct {
+    uint32_t CRL;
+    uint32_t CRH;
+    uint32_t IDR;
+    uint32_t ODR;
+    uint32_t BSRR;
+    uint32_t BRR;
+    uint32_t LCKR;
+} GPIOA_Reg;
+
+#define GPIOA ((GPIOA_Reg*) 0x40010800)
+#define GPIOA_CRL_MODE5 20
+#define GPIOA_CRL_CNF5 22
+
+#endif //LINKER_TUTORIAL_REGISTERS_H
+----
+
+And that's all! Since the clock source is not configured, STM32 will use internal 8 MHz RC oscillator, and that's more than sufficient for this simple project. Let's compile and link it:
+
+----
+$ arm-none-eabi-gcc \
+-mcpu=cortex-m3 \ <1>
+-mthumb \ <2>
+-Tscript.ld \ <3>
+-Wl,--gc-sections \ <4>
+-Os \ <5>
+main.c
+----
+
+<1> Set CPU type to Cortex-M3.
+<2> Set instructions set to Thumb.
+<3> Use our linker script.
+<4> Tell linker to get rid of unused sections.
+<5> Set code size optimization.
+
+If everything went good, the firmware file will be created as `a.out`. This file is in ELF format and can't be used directly to flash your microcontroller, instead you need to convert it to Intel HEX. This can be easily done with the following command:
+
+ $ arm-none-eabi-objcopy -O ihex a.out fw.hex
+
+Before you load *fw.hex* to ST-Link utility or OpenOCD, take a few minutes to analyze its content. You can open it in any text editor, and some of them (like Sublime Text after installing appropriate plugin) can highlight specific parts for easier reading. You can read more about Intel HEX syntax on https://en.wikipedia.org/wiki/Intel_HEX[Wikipedia].
+
+Take a look at the first two lines:
+
+ : 02 0000 04 0800 F2
+ : 08 0000 00 0050002011000008 71
+
+The first is a *04* record (Extended Linear Address), that means it sets starting address for next *00* records. As you see, the address is *0800*, looks familiar, eh? If you extend it to 32 bits (that's how *04* records work) you will get: `0x08000000`. It's our flash address!
+
+The next record's type is *00*, that means data. This is exactly what will be loaded to a microcontroller. This particular line instructs programmer to flash 8 bytes at previously set address + 0x0000 offset. Let me translate the payload from little endian to big endian: `20005000 08000011`. Holy crap, it's the initial stack pointer and probably the address of the main function! Let's execute one more command:
+
+ $ arm-none-eabi-objdump -D a.out
+
+If you scroll the output to top, you should see something like this:
+
+ 08000010 <main>:
+ 08000010: 4a07    ldr r2, [pc, #28] ; (8000030 <main+0x20>)
+
+The main function is actually at address `08000010`, but we OR'ed it earlier to produce odd result. You see? The physical placement of function didn't change, it's only how calls are made.
+
+The code compiles, stack pointer and entry point addresses are at valid locations, everything looks promising. Flash it baby! It worked perfectly on my board, the green LED lit up as it was supposed to.
+
+=== Important notice
+
+The linker script we've created is undoubtedly working, and you can use it freely with your simple projects. But, there's a one caveat you must be aware of: *you won't be able to modify global or static variables!* The script lacks `.data` section, thus the linker will put all your statics and globals right after `.text` section in a flash memory. As a consequence, they are readable, but not writable. You can clearly see this when you perform object dump of the result binary file.
+
+....
+Disassembly of section .data:
+
+08000058 <a>:
+08000058:	deadbeef 	cdple	14, 10, cr11, cr13, cr15, {7}
+....
+
+To achieve this effect, I created a global variable: `int a = 0xDEADBEEF`, and then compiled/linked the code again. By looking at the address, we can see that the variable has been placed in a flash memory, and effectively became read only.
+
+It doesn't mean you can't use variables in your code. This issue affects only global and static variable, but local variables are placed on a stack, so as long as you use only them, this linker script will work for you. If you demand something more sophisticated, keep reading.
+
+== Simple Linker Script (SLS)
+
+If you are reading this, that means SSLS didn't satisfy your needs. That's good. SSLS was meant to be just an example that linker script doesn't have to be complicated to do its primary job. In this step we will create Simple Linker Script that truly can be used in projects, without giving up on basic language functionalities (like global variables).
+
+=== Adding a new block: MEMORY
+
+In the previous example we used so-called _location counter_ to set the starting address of `.text` section. It's a sufficient approach for simple scripts, but it will quickly become a complete mess as we add more memory regions. Not only the visual aspects are included, by using the location counter solely we limit ourselves to basic configuration, and we will hit the wall very soon.
+
+In linker script we can define one, and only one block named `MEMORY`. In this block we list all memory regions that we are keen to use. The regions we define there don't need to reflect microcontroller's memory layout exactly, however they are strongly correlated. The `MEMORY` block is only for you, for linker, and it doesn't affect the target device in any way.
+
+So, what regions should we define in this block? That's obvious: flash and SRAM.
+
+----
+MEMORY
+{
+    flash   (RX) : ORIGIN = 0x08000000, LENGTH = 128K
+    sram    (RW) : ORIGIN = 0x20000000, LENGTH = 20K
+}
+
+ENTRY(main);
+
+SECTIONS
+{
+    . = 0x08000000;
+    LONG(0x20005000);
+    LONG(main | 1);
+    .text : { *(.text) }
+}
+----
+
+The syntax of entries in `MEMORY` is kinda self-descriptive.
+
+* The first column is a name of a region, it can be anything meaningful to you.
+* The second is a desired access, for flash memory it's *Read* and *eXecute*, for SRAM: *Read* and *Write*.
+* The next is a starting address of a region, you usually have this from the microcontroller's documentation.
+* The last column sets the maximum size of a region; this prevents you from putting too much data into it. Linker will raise an error if it detects a memory overflow.
+
+As I said before, you are free to set regions as you like. You can have, for example, two flash regions: _flash_1_ starting from address `0x08000000` and _flash_2_ at `0x08001000`. Why? I don't know, maybe you have a reason to put a part of your code at a specific address.
+
+And now it's time to reorganize the script a little.
+
+----
+MEMORY {
+    flash   (RX) : ORIGIN = 0x08000000, LENGTH = 128K
+    sram    (RW) : ORIGIN = 0x20000000, LENGTH = 20K
+}
+
+ENTRY(main);
+
+SECTIONS
+{ <1>
+    .text :
+    {
+        LONG(0x20005000); <2>
+        LONG(main | 1);
+        *(.text)
+    } > flash <3>
+}
+----
+
+Here's a list of things I've done:
+
+<1> Removed the direct location counter manipulation. Since we explicitly told linker where to put the content of the section, it's no longer needed to set it manually.
+<2> Moved the stack pointer and entry point values to the `.text` section.
+<3> Told linker to put this section into the flash memory region.
+
+We also need to do something with the SRAM memory. When we created SSLS, variables were placed in the flash memory, because linker was not aware of existence of other memory regions. But now we can finally tell it!
+
+----
+MEMORY {
+    flash   (RX) : ORIGIN = 0x08000000, LENGTH = 128K
+    sram    (RW) : ORIGIN = 0x20000000, LENGTH = 20K
+}
+
+ENTRY(main);
+
+SECTIONS
+{
+    .text :
+    {
+        LONG(0x20005000);
+        LONG(main | 1);
+        *(.text)
+    } > flash
+
+    .data :
+    {
+        *(.data)
+    } > sram
+}
+----
+
+That's all. We simply defined a new output section: `.data`, that will include all `.data` sections from all object files, and this will be placed inside an SRAM memory. Compile, link and dump the object file to see what has changed:
+
+....
+Disassembly of section .data:
+
+20000000 <a>:
+20000000:	deadbeef 	cdple	14, 10, cr11, cr13, cr15, {7}
+....
+
+That looks good! This time the global variable is in an SRAM memory, so it is now writable. Let's also take a look at the last few lines of the Intel HEX file:
+
+....
+:02 0000 04 2000 DA
+:04 0000 00 EFBEADDE C4
+....
+
+The first record tells programmer to set the programming address to `0x20000000` and the next line tells it to write `0xDEADBEEF` there. That looks go... Wait a minute! What you trying to do here is flashing data to SRAM, and that's not possible. Even if you could, everything will vanish at the first reset of the device.
+
+Here comes the first limitation of Simple Linker Script: *you can make use of global/static variables, but you can't set their initial value at the declaration time*. Actually, this is something you can live with, the value can be set as well during a runtime.
+
+=== What about uninitialized variables?
+
+Global variables that are declared but not defined at the same time will end up in a `.bss` section. We didn't define such section yet, but linker is smarter than us and placed it right after the `.data` section, exactly where it should be. And here comes the second (and last) limitation of Simple Linker Script: *uninitialized global/static variables won't be zero'ed by default*. Well, this is a little handicap, but still tolerable.
+
+If you accept the two disabilities I mentioned, the linker script will serve you well. If you still want more, go to the next section where you will learn how to properly initialize `.data` and `.bss` sections, and you will also see how to prepare interrupt vector table.
+
+== Linker Script (LS)
+
+It's time to write something that works in every aspect. We want a robust linker script that initialises variables with their predefined values and zeroes uninitialised ones. Only then we could say that we have everything what's required for a basic Linker Script.
+
+Let's sum up what we miss:
+
+* proper entry point and stack definitions,
+* interrupt vectors,
+* data initialisation.
+
+Let's do this sequentially because these points are correlated. We start with changing how the entry point and stack addresses are set.
+
+=== Entry point and stack definitions
+
+We've set addresses of entry point and stack pointer directly in linker script. This solution works properly but, as you remember, we had to OR the entry point address so the CPU knows that the function under this address uses Thumb instructions set. This shouldn't be done manually, we aren't supposed to do any low-level voodoo to write a simple code, right? Can you imagine reworking every function call in your code? Thankfully, compiler is aware of such voodoo, and fixes all function calls accordingly, we just need to make use of its power.
+
+The "problem" is that the compiler works on a source code level, so it properly changes all functions' addresses there, but it knows nothing about the linker script, hence references to `main` in it are left untouched. I will do one more thing, just out of curiosity. Below the `main` function I've added a global variable pointing to the main method.
+
+[,c]
+----
+void (*main_ptr)(void) = main;
+----
+
+Now I compiled it and did the object dump. This is how the `.data` section looks like now:
+
+....
+Disassembly of section .data:
+
+20000000 <main_ptr>:
+20000000:	08000009 	stmdaeq	r0, {r0, r3}
+....
+
+And the actual address of `main`:
+
+....
+08000008 <main>
+....
+
+You see? Compiler automatically changed the address, we did nothing. Now we just need to put this modified address to the beginning of the binary, and say bye-bye to manual ORing. But how do we put something at a specific memory address? It's easy: the same way we've put all the sections previously.
+
+Add this small block of code under your `main` function:
+
+[,c]
+----
+void (*prologue[]) (void) __attribute__((section (".prologue"))) = {
+    (void (*)(void)) 0x20005000,
+    main
+};
+----
+
+Wow, slow down, Satan! This clearly needs an explanation! Let's start with breaking this up to simpler parts.
+
+* `void (*prologue[]) (void)` - this is a declaration of an array of pointers to functions that take nothing and return nothing;
+* `\\__attribute__` - this is a special keyword that allows to specify additional properties of functions, variables, structures etc.;
+* `section (".prologue")` - this is a parameter to `\\__attribute__` that tells the compiler to put the related symbol (array here) into the section with the specified name.
+
+Putting it together: define an array of pointers to void functions and put it to the `.prologue` section, initialising it with two items – the first is the initial stack pointer and the second is an address of the `main` function.
+
+Now we just need to tell linker to put this section with an array at the very beginning of a binary file, so the stack pointer and the entry point will be the first two values CPU reads on boot. We did that manually before, now we can have a more elegant solution.
+
+----
+MEMORY {
+    flash   (RX) : ORIGIN = 0x08000000, LENGTH = 128K
+    sram    (RW) : ORIGIN = 0x20000000, LENGTH = 20K
+}
+
+ENTRY(main);
+
+SECTIONS
+{
+    .text :
+    {
+        KEEP(*(.prologue));
+        *(.text)
+    } > flash
+
+    .data :
+    {
+        *(.data)
+    } > sram
+}
+----
+
+The `KEEP()` function tells linker to exclude a mentioned section from the garbage collection process. Linker would do that because we didn't reference the `prologue` array anywhere in the code, whereby linker could wrongly assume it's an unused symbol.
+
+If you compile and dump the object file, you will see something beautiful at the beginning:
+
+----
+Disassembly of section .text:
+
+08000000 <prologue>:
+8000000:	20005000 	andcs	r5, r0, r0
+8000004:	08000009 	stmdaeq	r0, {r0, r3}
+
+08000008 <main>:
+----
+
+Exactly how it should look like!
+
+[NOTE]
+This article is still in progress. It lacks description how to zero `.bss` section and set up interrupt vectors.
