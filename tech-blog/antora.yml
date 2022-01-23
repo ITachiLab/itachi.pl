@@ -4,4 +4,5 @@ version: ~
 nav:
 - modules/ROOT/nav.adoc
 - modules/lacrosse-tx3/nav.adoc
+- modules/stm32-linker-script/nav.adoc
 - modules/u-boot-on-raspberry/nav.adoc
