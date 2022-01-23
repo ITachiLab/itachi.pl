@@ -16,21 +16,26 @@ Each datagram consists of 44 bits:
 
 image::lacrosse-tx3-datagram.png[]
 
-.Preamble (8 bits)
+[discrete]
+==== Preamble (8 bits)
 It's always *0x0A*, no matter what.
 
-.Type (4 bits)
+[discrete]
+==== Type (4 bits)
 According to the linked website, this is a type of measure. It can be *0x0* for temperature or *0xE* for humidity. I can't verify humidity measurement, because my weather station is cheap, but I'm 100% sure that *0x0* works for temperature.
 
-.Address (7 bits)
+[discrete]
+==== Address (7 bits)
 Address of the sensor. It's not described how weather stations should interpret this value, but I can say a few words about mine. When my weather station is firstly powered on, it waits for any transmission for about 90 seconds, and then it remembers address of every sensor (up to 4) that sent something. Depending on how many of them sent something during this time, my weather station allows me to switch between those readings. The station repeats waiting for readings every 2 or 3 minutes, but now it ignores all transmitters that weren't learned on the beginning.
 
-.Parity (1 bit)
+[discrete]
+==== Parity (1 bit)
 I had problem with this. I used formula from the linked website but it didn't work. After about 2 hours of analyzing I eventually came up with a valid method of calculating this. I'm not sure whether this is a problem with my Chinese weather station, or author of the website made a mistake, but it's better to have more possible methods that none, right? So if my formula doesn't work for you, use that from the website.
 
 Parity bit works as a typical parity bit. It should be set when number of 1's in the temperature part is odd. So if you sum 1's from the pink and yellow part it should be even. *Don't include repeated temperature or address*.
 
-.Temperature (12 bits)
+[discrete]
+==== Temperature (12 bits)
 Temperature is encoded on 12 bits as a packed https://en.wikipedia.org/wiki/Binary-coded_decimal[BCD]. That means every nibble (4 bits) is a part of the resulting decimal, with the last digit being a fraction.
 
 ....
@@ -41,10 +46,12 @@ Temperature is encoded on 12 bits as a packed https://en.wikipedia.org/wiki/Bina
 
 Resulting temperature is *73.1* degrees. Pretty hot, isn't it? To get a valid value you have to subtract *50* from the reading and that's it - *23.1* degrees in Celsius scale. I'm not sure about origins of this offset, but I can only suppose that it's a method of transmitting negative values. Every reading below 50 will result in a negative number, thus the minimum temperature we can transmit is -50 degrees (reading equals to 0).
 
-.Repeated temperature (8 bits)
+[discrete]
+==== Repeated temperature (8 bits)
 I don't know why it's there, but it should be equal to the first 8 bits of the temperature.
 
-.Checksum (4 bits)
+[discrete]
+==== Checksum (4 bits)
 Checksum is calculated by summing all nibbles together and then ANDing the sum with 0x0F. In the above example it will be:
 
 ....
