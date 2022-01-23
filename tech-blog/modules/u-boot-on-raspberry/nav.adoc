@@ -1,2 +1,1 @@
-* xref:u-boot-on-raspberry.adoc[U-Boot on Raspberry]
-
+* xref:u-boot-on-raspberry.adoc[]
