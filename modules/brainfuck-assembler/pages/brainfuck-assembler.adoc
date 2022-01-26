@@ -1,0 +1,57 @@
+= Brainfuck assembler
+Itachi
+:description: An article describing a handcrafted assembler for Brainfuck language.
+
+I believe some of you already heard about *Brainfuck* programming language. This language serves two main purposes:
+
+ - it's indeed a programming language,
+ - fucks your brain.
+
+Consider this "Hello World" example:
+
+----
+++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.
+----
+
+Looks ugly and, what's worse, it works somehow. You can try this snippet in an https://www.nayuki.io/page/brainfuck-interpreter-javascript[online interpreter], which you also should keep open in a new tab as it will be useful during our journey.
+
+Brainfuck is based on a bunch of primitive machine commands, that are apparently sufficient to make Brainfuck a Turing complete language. In other words: you can go and write fully fledged programs in it, but it won't be very convenient.
+
+For obvious reasons (DRY, laziness, me being me) I'm not going to describe how Brainfuck actually works, everything is nicely explained on https://en.wikipedia.org/wiki/Brainfuck[Wikipedia]. The goal of this article is different, we will make writing in Brainfuck slightly more pleasant. Why? For fun of course!
+
+== Hands on
+
+As you might conclude from the article's title, we are going to create an assembler for Brainfuck (suggesting that writing in assembler is more pleasant). At the first sight it might be confusing -- assembler, for a programming language? How about... assembler for a pretty fucked up machine code!
+
+If we treat Brainfuck as a machine code, then Brainfuck's interpreter can be considered a platform providing us with memory and very limited CPU that understands Brainfuck's Machine Code. On this memory we can construct stack and simulate a single CPU register (only one, keeping more of them will be burdensome).
+
+It looks like we aren't creating the assembler solely, but a primitive 8-bit architecture. Sounds like fun!
+
+== Brainfuck Primitive Architecture (BPA)
+
+The assumptions of BPA are as follows:
+
+Memory:: Starts at 0x0 and is limited only by interpreter's implementation.
+Stack:: Top of the stack is initially set to -1, meaning that you can't read from the stack if there's nothin on it. Every push operation first increases the stack pointer (SP) and then writes the data. SP is always equal to the *current interpreter's data pointer - 1.*
+Register "r0":: This is the only register. It always lives under the current interpreter's data pointer, meaning that it is a part of the memory. Due to this, care must be taken when pushing new thins onto the stack as they can possibly overwrite precious data in r0.
+Forced flow of operations:: BPA's CPU instruction pointer can't be modified manually.
+
+Probably the most painful part will be maintaining the stack and the r0 register. Although the concept of the stack is entirely virtual and optional, having it in our toolbox will make writing codes in BPA ASM way easier than without it.
+
+== BPA Assembler
+
+=== Simple arithmetic
+
+Simple arithmetical operations like addition or subtraction can be effortlessly constructed using the Brainfuck's increment and decrement commands.
+
+|===
+|Instruction|Machine Code|Description
+
+|`inc r0`|`+`|Increase value of r0 register.
+
+|`dec r0`|`-`|Decrease value of r0 register.
+
+|`add r0, <con>`|`+` - repeated <con> times|Increase value of r0 register by a constant value.
+
+|`sub r0, <con>`|`-` - repeated <con> times|Decrease value of r0 register by a constant value.
+|===
