@@ -1,0 +1,23 @@
+= Error 0x204 when connecting to Remote Desktop
+
+This is something you can spot when connecting from MacOS to Windows's Remote Desktop. When connecting from Windows, you usually will see just a connection error. If you already tried all the troubleshooting guides, and you are frustrated because you know you have Remote Desktop service running, and still every guide tries to convince you that you are wrong, this little article could be for you.
+
+I started having this error out of sudden. I suspect my corporate VPN application being the cause here. I've tried a bunch of things in order to solve this problem, but none of them helped:
+
+* restarting Remote Desktop service,
+* changing port,
+* adding *mstc.exe* to firewall,
+* changing options in the client software,
+* and a few more I don't even remember.
+
+Once, just out of curiosity, I've disabled the firewall completely, and... whoosh! I can connect! Leaving the firewall disabled is not the smartest thing to do, so I was looking for how to enable Remote Desktop on firewall (apparently it's blocked).
+
+The solution I've found was pretty simple: add "Remote Desktop" to allowed programs in firewall settings. Yeah, but I didn't have such option on the list of programs. I had plenty of different programs, but not this one. And then, I've found this gold: https://superuser.com/a/904361/297493. As the answer says, simply execute the following command in the command line (Administrator privileges could be required):
+
+ netsh firewall set service type = remotedesktop mode = enable
+
+I can confirm that this worked for me perfectly.
+
+Before you bash me that I created a whole article just to paste a link to SuperUser, let me explain why I did that. It took me some time to realise that the error I was seeing is caused by some missing rule in the firewall. I was simply googling for "0x204 remote desktop", and every site was barely helpful. They were just copy-pasting the same useless tips like: make sure the Remote Desktop is enabled. It's like you have a problem with a car, someone stops by and asks: "Hey, did you try to turn the key?".
+
+I've found the SuperUser question only when I started suspecting problems with the firewall, so I googled strictly for that. My article is here to point a finger at your firewall and ask: "Did you check this guy *thoroughly*"? It might save someone a couple of hours.

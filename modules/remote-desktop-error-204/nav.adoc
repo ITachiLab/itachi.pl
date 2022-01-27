@@ -1,0 +1,1 @@
+* xref:remote-desktop-error-204.adoc[Remote Desktop Error 0x204]

@@ -3,4 +3,4 @@ title: Micro Blog
 version: ~
 nav:
   - modules/ROOT/nav.adoc
-
+  - modules/remote-desktop-error-204/nav.adoc
