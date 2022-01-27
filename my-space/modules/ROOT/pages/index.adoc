@@ -1,0 +1,12 @@
+= My Space
+Itachi
+:description: This is a space about me - the author of itachi.pl.
+
+Welcome to My Space! I hope I won't be sued for using this name, but this is literally a space dedicate to me, like personal ME. Since I'm not exceptionally interesting persona, not much will be here.
+
+You might be more interested in the following spaces:
+
+xref:tech-blog::index.adoc[Tech Blog]:: Bigger articles that are strictly related to technical stuff.
+xref:micro-blog::index.adoc[Micro Blog]:: Tiny posts that are also interesting but not big enough to become a part of the Tech Blog.
+
+Feel free to mail me at `lx-rozbd@hszbgh.ok` (ROT-1 all letters) if you have questions or suggestions that will help me improve anything within this space.

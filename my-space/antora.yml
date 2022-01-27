@@ -1,0 +1,5 @@
+name: my-space
+title: My Space
+version: ~
+nav:
+- modules/ROOT/nav.adoc
