@@ -1,0 +1,7 @@
+= Micro Blog
+Itachi
+:description: This is a microblog where you can find tiny posts that are too small to be called articles.
+
+Welcome to my Micro Blog! This is a space, where you can find all posts that are too small to become articles on Tech Blog. Posts here are not always related to technical stuff, but mostly will.
+
+Feel free to mail me at `lhbqn-aknf@hszbgh.ok` (ROT-1 all letters) if you have questions or suggestions that will help me improve Micro Blog and posts contained within it.

@@ -1,0 +1,6 @@
+name: micro-blog
+title: Micro Blog
+version: ~
+nav:
+  - modules/ROOT/nav.adoc
+
