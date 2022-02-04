@@ -1,11 +1,11 @@
-= Brainfuck assembler
+= Brainfuck Assembler (BFA)
 Itachi
 :description: An article describing a handcrafted assembler for Brainfuck language.
 
 I believe some of you already heard about *Brainfuck* programming language. This language serves two main purposes:
 
 - it's indeed a programming language,
- - fucks your brain.
+- fucks your brain.
 
 Consider this "Hello World" example:
 
@@ -38,13 +38,13 @@ Forced flow of operations:: BPA's CPU instruction pointer can't be modified manu
 
 Probably the most painful part will be maintaining the stack and the r0 register. Although the concept of the stack is entirely virtual and optional, having it in our toolbox will make writing codes in BPA ASM way easier than without it.
 
-== BPA Assembler
+== Syntax and reference
 
 Before we start describing the instruction set, let's define a bunch of simple keywords used in the following section.
 
 `r0`:: The only register we have.
 `<con>`:: Any 8-bit constant value.
-`[esp - n]`:: Variable on a stack. If `n` is zero (can be omitted), it points to the top of the stack.
+`[sp - n]`:: Variable on a stack. If `n` is zero (can be omitted), it points to the top of the stack.
 
 === Simple arithmetic
 
@@ -61,17 +61,17 @@ Simple arithmetical operations like addition or subtraction can be effortlessly 
 
 |`sub r0, <con>`|`-` repeated *con* times.|Decrease value of r0 register by a constant value.
 
-|`inc [esp - n]`|`<` repeated *n + 1* times, then `+`, then `>` repeated *n + 1* times.|Increase value of a variable on the stack.
+|`inc [sp - n]`|`<` repeated *n + 1* times, then `+`, then `>` repeated *n + 1* times.|Increase value of a variable on the stack.
 
-|`dec [esp - n]`|`<` repeated *n + 1* times, then `-`, then `>` repeated *n + 1* times.|Decrease value of a variable on the stack.
+|`dec [sp - n]`|`<` repeated *n + 1* times, then `-`, then `>` repeated *n + 1* times.|Decrease value of a variable on the stack.
 
-|`add [esp - n], <con>`|`<` repeated *n + 1* times, then `+` repeated *con* times, then `>` repeated *n + 1* times.|Increase value of a variable on the stack by a constant value.
+|`add [sp - n], <con>`|`<` repeated *n + 1* times, then `+` repeated *con* times, then `>` repeated *n + 1* times.|Increase value of a variable on the stack by a constant value.
 
-|`sub [esp - n], <con>`|`<` repeated *n + 1* times, then `-` repeated *con* times, then `>` repeated *n + 1* times.|Decrease value of a variable on the stack by a constant value.
+|`sub [sp - n], <con>`|`<` repeated *n + 1* times, then `-` repeated *con* times, then `>` repeated *n + 1* times.|Decrease value of a variable on the stack by a constant value.
 
 |`zero r0`|`[-]`|Zeroes the *r0* register.
 
-|`zero [esp - n]`|`<` repeated *n* times, then `[-]`, then `>` repeated *n + 1* times.|Zeroes a variable on the stack.
+|`zero [sp - n]`|`<` repeated *n* times, then `[-]`, then `>` repeated *n + 1* times.|Zeroes a variable on the stack.
 |===
 
 === Stack operations
@@ -157,6 +157,93 @@ And again, in some circumstances, the above operations can be optimized:
 >           ; Set the data pointer to the new r0 (target cell).
 ....
 
-This is possible if r0 is to be written with some value, but the old value won't be used in the meantime.
+This is possible only if r0 is to be written with some value, but the old value won't be used in the meantime.
 
-===
+=== Copying (moving) operations
+
+We've already discussed copying values between cells, but these were rather side effects of other instructions. In this section we are going to do some intentional copying.
+
+|===
+|Instruction|Machine Code|Description
+
+|`mov r0, <con>`|`[-]`, then `+` repeated *con* times.|Zero r0 register and increase its value until the desired is reached.
+
+|`mov r0, [sp - n]`
+2+|xref:_copying_memory_to_r0[]
+
+|`mov [sp - n], r0`
+2+|xref:_copying_r0_to_memory[]
+
+|`mov [sp - n], <con>`|`<` repeated *n+1* times, then `[-]`, then `+` repeated *con* times, then `>` repeated *n+1* times.|Go to the target cell, increase until the desired value is reached, then go to the original cell.
+
+|===
+
+[#_copying_memory_to_r0]
+==== Copying memory to r0
+
+This is another kind of instruction that requires using a temporary cell to back up the source data. Suppose we'd like to execute the following instruction: `mov r0, [sp - 3]`. Then, the following set of Brainfuck commands shall be executed:
+
+----
+[-]             <1>
+>               <2>
+[-]             <3>
+<<<<<           <4>
+[->>>>+>+<<<<<] <5>
+>>>>>           <6>
+[-<<<<<+>>>>>>] <7>
+<               <8>
+----
+
+<1> Zero r0 register.
+<2> Go to the temporary cell.
+<3> Zero the temporary cell.
+<4> Go to the source cell.
+<5> Repeat the loop until the source cell is zero. In each loop iteration: decrease the source cell, go to the r0 register, increase it, go to the temp cell and also increase it. Before repeating the loop, go back to the source cell.
+<6> Go to the temp cell.
+<7> Repeat the loop until the temporary cell is zero. In each loop iteration: decrease the temporary cell value, go to the source cell, increase it and go back to the temporary cell. Repeat the loop.
+<8> Set the data pointer at r0 register.
+
+The only variable parts are the ones moving the data pointer back and forth to reach the source cell. The number of these moves depends only on the selected source cell. The rest of the code is constant.
+
+[#_copying_r0_to_memory]
+==== Copying r0 to memory
+
+Suppose we'd like to execute the following instruction: `mov [sp - 1], r0`. Then, the following set of Brainfuck commands shall be executed:
+
+----
+<<          <1>
+[-]         <2>
+>>>         <3>
+[-]         <4>
+<           <5>
+[-<<+>>]    <6>
+>           <7>
+[-<+>]      <8>
+<           <9>
+----
+
+<1> Go to the target cell.
+<2> Zero it.
+<3> Go to the temporary cell.
+<4> Zero it too.
+<5> Go to the source cell (r0)
+<6> Repeat the loop until the source cell is zero. In each loop iteration: decrease the r0, go to the target cell, increase it and go back to the source cell.
+<7> Go to the temporary cell.
+<8> Repeat the loop until the temporary cell is zero. In each loop iteration: decrease the temporary cell, go to the source cell, increase it and go back to the temporary cell.
+<9> Set the data pointer at r0 register.
+
+=== Control flow
+
+In Brainfuck you have only one method of controlling the execution flow: a simple loop, which is an equivalent of C's *while*; we've used that quite a lot in the previous sections. This simple loop is also the only way of mimicking conditional statements, since in Brainfuck there's no such thing as "if/else".
+
+|===
+|Instruction|Machine Code|Description
+
+|`ifnz` <ins1, ins2, ... insN> `repeat`|`[`...`]`|If value in register r0 is not zero, then execute instructions contained between `ifnz` and its respective `repeat`.
+
+|===
+
+Unfortunately, we cannot control the instruction pointer, with a consequence being an inability to implement jump instructions. The code always executes from the top to the bottom, with a tiny exception for the mentioned loop.
+
+=== Defining and using variables
+
