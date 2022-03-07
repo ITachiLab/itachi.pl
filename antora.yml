@@ -2,7 +2,8 @@ name: tech-blog
 title: Tech Blog
 version: ~
 nav:
-- modules/ROOT/nav.adoc
-- modules/lacrosse-tx3/nav.adoc
-- modules/stm32-linker-script/nav.adoc
-- modules/u-boot-on-raspberry/nav.adoc
+    - modules/ROOT/nav.adoc
+    - modules/initramfs-pi/nav.adoc
+    - modules/lacrosse-tx3/nav.adoc
+    - modules/stm32-linker-script/nav.adoc
+    - modules/u-boot-on-raspberry/nav.adoc

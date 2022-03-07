@@ -1,0 +1,86 @@
+= Raspberry Pi running from initramfs
+Itachi
+:description: This article describes how to prepare Raspbery Pi to run entirely from initramfs.
+:docdate: 2022-03-06
+
+In this article we are going to do really cool stuff (as always, aren't we?). How about having a really small Kernel for Raspberry that runs entirely from its initial RAM file system, and doesn't even need an SD card once it's up? An example application could be some metering IoT platform that only reads data from a bunch of I2C or SPI devices and sends that to the cloud. When you build device like this, you really don't need all this fancy stuff shipped with Raspbian. In fact, you only need a bunch of drivers and binaries. All of that is small enough to fit in RAM and still leave lots of space for running programs.
+
+== Flight plan
+
+This article will be lengthy, I'm not gonna lie. Here's a short list of long things we are going to do:
+
+.Setup a development environment
+
+It's rather obvious we need some build tools. This time we are going to use two different toolchains -- one for building the Kernel, and second for building other stuff that will run under this kernel.
+
+[WARNING]
+Using different toolchain for building the Linux apps might be relevant only for Raspberrys powered by ARMv6 chips (like mine Raspberry Pi Zero W). I didn't test that, but if you have Raspberry with ARMv7, you might want to try using the same toolchain for the apps.
+
+.Prepare Raspberry Pi
+
+In order to run our custom Kernel, we have to change a couple of things on the `boot` partition.
+
+.Prepare a minimalist Kernel
+
+Depending on our needs, we can tailor the Kernel to only contain necessary modules. Media or HID drivers? Who needs that on the metering platform?!
+
+.Build BusyBox
+
+When it comes to embedded devices, I mean, REAL embedded devices, BusyBox is your best friend. It contains all the tools you need to setup a simple CLI for managing your platform.
+
+.Prepare an initial RAM file system (initramfs)
+
+This will be the hardest part. Kernel is one thing, but the root file system is a completely different story. `/dev`, `/etc` or `/lib` aren't going to magically appear. The responsibility of creating these and other directories lays on you, sorry.
+
+
+Sounds like we have a plan. Shall we start?
+
+== Setup a development environment
+
+=== For building the Kernel
+
+Let's start with obtaining the stuff we actually want to compile. This of course will be https://github.com/raspberrypi/linux[Raspbian]. The following command will clone only the head branch and only the tip of it; we don't need the whole history.
+
+ git clone --depth 1 --single-branch https://github.com/raspberrypi/linux.git
+
+When it comes to compiling the Kernel, it's beautifully described in the https://www.raspberrypi.com/documentation/computers/linux_kernel.html[official documentation]. It's not that hard, really. First, you need to install a bunch of tools:
+
+ sudo apt install git bc bison flex libssl-dev make libc6-dev libncurses5-dev
+
+After that, you have to decide what cross toolchain you need. The choice depends on Raspberry version you are targeting. For this article I'm going to use _Raspberry Pi Zero W_, so the proper toolchain is the one targeting 32-bit platforms.
+
+ sudo apt install crossbuild-essential-armhf
+
+For 64-bit Pies the command doesn't differ much:
+
+ sudo apt install crossbuild-essential-arm64
+
+=== For building other stuff
+
+As mentioned earlier, this step might be relevant only for ARMv6 Raspberrys. If you have one, you need another toolchain for building the Linux apps that will run under your custom Kernel. Thankfully, there's a place where you can download precompiled toolchains, so you don't have to create them on your own -- https://sourceforge.net/projects/raspberry-pi-cross-compilers/files/Raspberry%20Pi%20GCC%20Cross-Compiler%20Toolchains/.
+
+At the time of writing this article, the newest Raspbian is based on Debian 11 (Bullseye), so enter the directory with that name. Next, you have to choose a GCC version. Take the newest, and in case of troubles, you can try other versions later. The last step is selecting the proper Raspberry (I'm choosing  _Raspberry Pi 1, Zero_ here). That's it! You can now download the toolchain, extract it, and keep somewhere until we need it.
+
+== Prepare Raspberry Pi
+
+We start from downloading the Raspbian Lite image and writing it onto an SD card. Use any method you like, it doesn't matter. Once it's done, we have to tweak a few things.
+
+=== Changes in config.txt
+
+At the end of the file, add the following lines:
+
+ kernel=zImage <1>
+ enable_uart=1 <2>
+
+<1> Set Kernel file name to `zImage`. This file doesn't exist yet, we are going to create it soon.
+<2> Enable serial console. This will be the preferred and only way of communicating with Raspberry directly.
+
+=== Changes in cmdline.txt
+
+While modifying `config.txt` isn't anything extraordinary, `cmdline.txt` is rarely touched. This file contains parameters that will be passed to Kernel when it's booting. It's like passing command line arguments to programs.
+
+The default cmdline has lots of stuff we don't need. These are:
+
+root :: This is a parameter that points to the device with a root file system. Since we are building Raspberry that runs entirely from initramfs, this will be the root file system.
+
+Additional `console` :: fsdfs
