@@ -7,7 +7,7 @@ source
   ;
 
 dataSection
-  : DATA_SECTION dataEntry+ DATA_END
+  : DATA_SECTION dataEntry+
   ;
 
 dataEntry
@@ -15,14 +15,15 @@ dataEntry
   ;
 
 codeSection
-  : CODE_SECTION instruction+ CODE_END
+  : TEXT_SECTION instruction+
   ;
 
 instruction
   : MNEMONIC_MOV OPERAND_REG0 OPERAND_DELIM OPERAND_CONST
-  | MNEMONIC_MOV OPERAND_REG0 OPERAND_DELIM operandMem
+  | MNEMONIC_MOV OPERAND_REG0 OPERAND_DELIM operandMemDereference
+  | MNEMONIC_MOV OPERAND_REG0 OPERAND_DELIM OPERAND_MEM_ADDRESS
   ;
 
-operandMem
-  : MEM_TYPE MEM_MINUS MEM_OFFSET
+operandMemDereference
+  : MEM_POINTER MEM_MINUS_PLUS MEM_OFFSET
   ;
