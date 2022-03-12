@@ -81,6 +81,60 @@ While modifying `config.txt` isn't anything extraordinary, `cmdline.txt` is rare
 
 The default cmdline has lots of stuff we don't need. These are:
 
-root :: This is a parameter that points to the device with a root file system. Since we are building Raspberry that runs entirely from initramfs, this will be the root file system.
+`root` :: This is a parameter that points to the device with a root file system. Since we are building Raspberry that runs entirely from initramfs, this will be the root file system.
 
-Additional `console` :: fsdfs
+`rootfstype` :: A type of the file system of the root device. Since we are not using any root device, this can be safely removed.
+
+`fsck.repair` :: Controls fsck behavior. Again, we are not planning to use any file system, so this can be removed too.
+
+`rootwait` :: Makes Kernel wait for the root device to be available. Not needed too.
+
+`quiet` :: Suppresses Kernel messages while booting. When working with our hand-crafted Linux from scratch you indeed want to see Kernel messages.
+
+`init` :: Selects the initial program to run when Kernel is booting. If this is removed, Kernel will try to find `init` program in the root directory of initramfs and this is exactly what we want.
+
+Looks like the only stuff we need in the command line is:
+
+ console=serial0,115200 console=tty1
+
+The above command line will do two things:
+
+- Kernel messages will appear on a serial console device `serial0` (this will be Raspberry's UART);
+- `/dev/console` will be linked to `/dev/tty1`.
+
+Don't bother with this now, it will become clearer later.
+
+== Prepare minimalist Kernel
+
+The fun part begins -- we are going to configure the Kernel. The best choice is to start with the default config for Raspberry and then tailor that to your needs. It's easier to work on something that can be booted out of the box, then proceed with removing unused stuff, than to spent the rest of your life wondering why your Kernel doesn't boot.
+
+Without much talking, navigate your console to the directory with Raspbian and execute the following commands:
+
+ KERNEL=kernel
+ make bcmrpi_defconfig
+
+[CAUTION]
+The defconfig for your Raspberry might be different, https://www.raspberrypi.com/documentation/computers/linux_kernel.html#kernel-configuration[consult the official documentation]. The one I'm using here is suitable for Raspberry 1, Zero, Zero W and Compute Module 1.
+
+When the default config is ready, you can proceed with a more detailed configuration through `menuconfig`.
+
+ make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig
+
+Or, for 64-bit Kernels:
+
+ make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- menuconfig
+
+I spent a good hour or two picking up things that I need for my tiny Kernel. I'm not going to list all of them as it will be too much unnecessary work, but in general I did the following things:
+
+- disabled modules subsystem, so everything is built into the Kernel binary;
+- disabled drivers for stuff I will never use, like: HID, media, graphics, amateur radio, wired network and many more;
+- removed support for file systems;
+- *selected initramfs source*.
+
+The last point is emphasized on purpose, we are going to look at it in detail.
+
+=== Initramfs source
+
+For basic information about initramfs, I really recommend going through this article: https://landley.net/writing/rootfs-howto.html. Like seriously, go there and don't go back here until you read it. Done? Good.
+
+To create our initramfs, we will use the configuration file approach. This gives the most flexibility and makes doing any changes way more easier than manipulating files in a directory (especially when it comes to changing permissions and creating device nodes).
