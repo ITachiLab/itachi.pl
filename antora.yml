@@ -1,6 +1,5 @@
 name: tech-blog
 title: Tech Blog
-version: ~
 nav:
 - modules/ROOT/nav.adoc
 - modules/lacrosse-tx3/nav.adoc
