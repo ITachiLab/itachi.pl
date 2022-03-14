@@ -238,4 +238,27 @@ When it's done, the gzipped Kernel image can be found at *arch/arm/boot/zImage*.
 
 Congratulations, you've just created a valid initramfs, AND an initial program! It doesn't do much, but we really do not want to make it do more. It's not our task to write any sort of such stuff because we already have it covered by BusyBox.
 
+== BusyBox
+
+BusyBox is a set of Linux utilities you need to have to survive in the Linux world, especially when this world is embedded. All commands you usually want to be available, like: `cat`, `ls`, `mv`, `ip` etc. are incorporated in BusyBox. Sure you can compile each of them manually and put to appropriate `/bin` or `/sbin` directory in initramfs, but this will take definitely too much time. BusyBox has all of that common commands out-of-the-box.
+
+Besides being a big pile of useful tools, BusyBox offers everything you would expect from a typical Linux shell. BusyBox will be your initial program and sign-in facility too. No surprise the authors call it: "_The Swiss Army knife of Embedded Linux_".
+
+=== Get sources
+
+The latest BusyBox sources can be downloaded from the https://www.busybox.net/downloads/[official site]. Download the desired package and extract it anywhere you want. In my case, I have it in `extra/busybox` directory inside the project workspace. And that's all, the next step will be configuration of BusyBox's features.
+
+=== Configure features
+
+[CAUTION]
+Before you proceed, make sure a toolchain appropriate for building Linux apps is present in your PATH. This should be the same toolchain you used for the initial program earlier.
+
+BusyBox can be configured in a similar manner we configured Kernel. You can start with one of the default configurations, and tailor it to your needs (that's what I did). To list possible make targets, execute: `make help`. If you don't care about BusyBox size, and you feel comfortable with having everything, you can go with `make defconfig` which will create the largest generic configuration.
+
+Whatever config you chose, there are still two small things you'd like to change in the configuration, so run `make menuconfig`, go to *Settings* and change the below options to suggested values:
+
+Build static binary (no shared libs) :: Mark that as enabled. Thanks to this, you will save some time on finding libraries required by BusyBox and copying them to initramfs.
+
+Cross compiler prefix :: Set that to: `arm-linux-gnueabihf-`.
+
 
