@@ -140,7 +140,7 @@ Or, for 64-bit Kernels:
 
  make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- menuconfig
 
-I spent a good hour or two removing unnecessary modules, in order to make Kernel small, you can find my `.config` xref:attachment$kernel_config[in attachments]. In general, I did the following:
+I spent a good hour or two removing unnecessary modules, in order to make Kernel small, you can find my `.config` xref:attachment$kernel.config[in attachments]. In general, I did the following:
 
 - disabled modules subsystem, so everything is built into the Kernel binary;
 - disabled drivers for stuff I will never use, like: HID, media, graphics, amateur radio, wired network and many more;
@@ -226,12 +226,16 @@ The last step is to move the compiled binary to the directory with initramfs con
 
 While being in Kernel menuconfig, go to *General setup*, find *Initramfs source file(s)* and set the path to: `../initramfs/initramfs.cpio-config` (or other, if you organized your directory differently).
 
-=== Build Kernel
+=== Build and run Kernel
 
 If everything is ready, it's time to build the Kernel. Invoke the below command and go make yourself a coffee, the compilation process can take 15-20 minutes, depending on your machine and on a number of things you left enabled in Kernel config.
 
 ....
 $ make -j4 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- zImage
 ....
+
+When it's done, the gzipped Kernel image can be found at *arch/arm/boot/zImage*. Copy this file to the _boot_ partition of the SD card you've prepared earlier and try booting Raspberry from it. If you did everything properly, on the Raspberry's serial output you should see Kernel messages appearing and finally a "Hello, World!" text. 
+
+Congratulations, you've just created a valid initramfs, AND an initial program! It doesn't do much, but we really do not want to make it do more. It's not our task to write any sort of such stuff because we already have it covered by BusyBox.
 
 
