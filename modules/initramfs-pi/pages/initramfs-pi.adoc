@@ -140,7 +140,7 @@ Or, for 64-bit Kernels:
 
  make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- menuconfig
 
-I spent a good hour or two removing unnecessary modules, in order to make Kernel small, you can find my `.config` xref:attachment$.config[in attachments]. In general, I did the following:
+I spent a good hour or two removing unnecessary modules, in order to make Kernel small, you can find my `.config` xref:attachment$kernel_config[in attachments]. In general, I did the following:
 
 - disabled modules subsystem, so everything is built into the Kernel binary;
 - disabled drivers for stuff I will never use, like: HID, media, graphics, amateur radio, wired network and many more;
