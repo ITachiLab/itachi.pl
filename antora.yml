@@ -5,3 +5,4 @@ nav:
 - modules/lacrosse-tx3/nav.adoc
 - modules/stm32-linker-script/nav.adoc
 - modules/u-boot-on-raspberry/nav.adoc
+- modules/brainfuck-assembler/nav.adoc
