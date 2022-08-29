@@ -1,6 +1,6 @@
 name: journal
 title: Journal
-version: ~
+version: true
 nav:
 - modules/ROOT/nav.adoc
 - modules/2022-08/nav.adoc

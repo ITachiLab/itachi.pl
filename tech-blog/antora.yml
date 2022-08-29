@@ -1,6 +1,6 @@
 name: tech-blog
 title: Tech Blog
-version: ~
+version: true
 nav:
     - modules/ROOT/nav.adoc
     - modules/initramfs-pi/nav.adoc
