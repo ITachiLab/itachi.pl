@@ -3,3 +3,5 @@
 Journal is a space where I gather my (not) daily thoughts, successes and failures. Posts here are rather short and informal. The main purpose of this space is to keep track of what I'm doing, just to summarise my progress and to keep important notes for future use. There's also a chance that someone would benefit from it, maybe he or she will find a clue or even a whole solution while reading my loose thoughts.
 
 In case you have any feedback, question or other suggestion, I strongly encourage you to contact through *Issues* on GitHub. I know, unusual, but I like keeping my stuff together, and since my page's sources are kept on GitHub, all discussions can also live there, why not?
+
+In case of any questions, suggestions or complaints, contact me by https://github.com/ITachiLab/itachi.pl/issues[GitHub issues]. Label your issue with *journal*.

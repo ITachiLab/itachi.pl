@@ -6,7 +6,7 @@ Welcome to My Space! I hope I won't be sued for using this name, but this is lit
 
 You might be more interested in the following spaces:
 
-xref:tech-blog::index.adoc[Tech Blog]:: Bigger articles that are strictly related to technical stuff.
-xref:journal::index.adoc[Journal]:: (Not) daily, short posts, mainly for myself.
+xref:tech-blog::index.adoc[Tech Blog]:: Big and small articles that are strictly related to technical stuff.
+xref:journal::index.adoc[Journal]:: (Not) daily, short posts about everything.
 
-Feel free to mail me at `lx-rozbd@hszbgh.ok` (ROT-1 all letters) if you have questions or suggestions that will help me improve anything within this space.
+In case of any questions, suggestions or complaints, contact me by https://github.com/ITachiLab/itachi.pl/issues[GitHub issues]. Label your issue with *my-space*.
