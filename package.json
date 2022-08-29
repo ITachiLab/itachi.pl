@@ -5,6 +5,7 @@
         "http-server": "^14.1.1"
     },
     "scripts": {
-        "generate": "antora generate --fetch antora-playbook.yml"
+        "generate": "CI=true antora generate --fetch antora-playbook.yml",
+        "preview": "http-server -c-1 public_html"
     }
 }
