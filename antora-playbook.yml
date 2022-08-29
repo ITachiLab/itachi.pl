@@ -6,7 +6,16 @@ content:
     edit_url: ~
     sources:
         - url: https://github.com/ITachiLab/itachi.pl
-          start_paths: [my-space, tech-blog, journal]
+          branches: [draft/my-space/*]
+          start_path: my-space
+        - url: https://github.com/ITachiLab/itachi.pl
+          branches: [draft/tech-blog/*]
+          start_path: tech-blog
+        - url: https://github.com/ITachiLab/itachi.pl
+          branches: [draft/journal/*]
+          start_path: journal
+        - url: .
+          start_paths: my-space, tech-blog, journal
 ui:
     bundle:
         url: ui
