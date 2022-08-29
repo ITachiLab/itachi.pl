@@ -3,7 +3,6 @@ site:
     url: http://new.itachi.pl
     start_page: my-space::index.adoc
 content:
-    edit_url: ~
     sources:
         - url: https://github.com/ITachiLab/itachi.pl
           branches: [draft/my-space/*]
