@@ -1,0 +1,1 @@
+* xref:nrf-with-cmake.adoc[]

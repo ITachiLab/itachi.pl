@@ -1,0 +1,26 @@
+= nRF with CMake
+Itachi
+:description: A quick guide describing a process of setting up CMake environment for developing projects for nRF microchips.
+:docdate: 2022-08-30
+
+The purpose of this short article is to describe a process of setting up CMake environment for developing projects for nRF microchips. Usually the projects are based on good old Makefiles, but using CMake can greatly improve maintainability and readability of projects.
+
+*nRF* is a line of affordable SoCs manufactured by Nordic Semiconductor. They are mostly known for their radio capabilities, allowing anyone to easily empower their products with BLE or ANT communication. Despite having numerous advantages, nRFs aren't particularly common among hobbyists due to a steep learning curve. What makes this curve even steeper is lack of elaborate manuals, forcing beginners to rely on official documentation which is not always very helpful. Developers familiar with Kernel code should know the pain already.
+
+I'm one of the beginners who struggle, so everytime I have a possibility of making my life easier, this is what I'm doing. This time I decided to use CMake for my nRF projects. Originally the build system for nRF is based on Makefiles, and they are rather unnecessarily complicated (personal opinion), but it's fairly simple to migrate to CMake build system.
+
+IMPORTANT: SDK set up process is not a part of this article. I assume you have everything up and working.
+
+== Makefile solution
+
+Let's first take a look how it's organised originally; as an example we take immortal `ble_app_blinky` project. The project's Makefile can be found in the `nrf_sdk/examples/ble_peripheral/ble_app_blinky/pca10056/s140/armgcc` directory.
+
+The first thing that hurts eyes is the vast list of sources and include directories. This is definitely something that must be extracted to some other place just to keep build system files human-readable. The next comes section with compiler and linker flags which can be optimised too by simply sorting out problem of repeated flags and definitions.
+
+Not that bad, right? But wait, there is another Makefile hidden inside: `include $(TEMPLATE_PATH)/Makefile.common` and this one is not that straightforward. I'm not going to describe everything what's happening in there, it's enough I did that once. What's important is that majority of that Makefile is just a bunch of convenience macros for doing something what's already done by CMake behind the scenes. So, if we filter out the stuff covered by CMake, it looks like we only need to gather flags and definitions and pass them to appropriate CMake functions. Sounds simple? It's kinda simple.
+
+== CMake approach
+
+=== Toolchain file
+
+The most important thing when doing any cross-compilation with CMake is having a proper toolchain file. The toolchain file looks like a usual `CMakeLists.txt` with a small difference that it is supposed to be given to CMake explicitly when configuring the project for the first time. This toolchain file should at least contain locations of compiler and linker binaries, but I usually keep other compiler related configurations in it.
