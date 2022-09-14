@@ -1,0 +1,35 @@
+= Parsing NEC protocol on STM32 elegantly
+Itachi
+:description: Describing a process of parsing NEC infrared protocol on STM32 microcontroller
+
+NEC is one of infrared protocols used for remote controlling devices such as TVs or amplifiers. It is very simple thus easy to parse on microcontrollers even using bit banging method. The goal of this article is to describe a more elegant way of doing this by using timers and input capture function of STM32 microcontroller.
+
+== NEC protocol
+
+Let's first take a look at the protocol itself. Since a very good description of this protocol and other IR protocols can be found on https://www.sbprojects.net/knowledge/ir/nec.php[SB-Projects website], I'm not going to dive into details. The most important stuff to know before doing anything can be shortened to a couple of bullet points:
+
+- A single transmission consists of a preamble, device address, negated device address, command and a negated command (in that order).
+- Preamble and data bits are always encoded by a high state pulse and a low state pulse lasting a specific amount of time (shown in the table below).
+- The whole transmission ends with a short high pulse, some sort of stop bit.
+
+|===
+| |High pulse length |Low pulse length
+
+|Preamble
+|9500 μs
+|4500 μs
+
+|Bit 0
+|560 μs
+|560 μs
+
+|Bit 1
+|560 μs
+|1690 μs
+
+|Stop bit
+|560 μs
+|∞ μs
+|===
+
+To actually see this protocol in action, I attached a popular IR receiver TSOP4838 to my logic analyzer and played with a TV remote. Here's what I got:
