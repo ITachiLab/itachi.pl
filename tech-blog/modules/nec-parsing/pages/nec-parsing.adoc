@@ -2,21 +2,23 @@
 Itachi
 :description: Describing a process of parsing NEC infrared protocol on STM32 microcontroller
 
-NEC is one of infrared protocols used for remote controlling devices such as TVs or amplifiers. It is very simple thus easy to parse on microcontrollers even using bit banging method. The goal of this article is to describe a more elegant way of doing this by using timers and input capture function of STM32 microcontroller.
+NEC is one of infrared protocols used for controlling devices such as TVs or amplifiers. The protocol is very simple, it is easy to decode it on microcontroller even with a naive bit banging method. The goal of this article is to describe a more elegant way of doing this by using timers and input capture function of STM32 microcontroller.
 
 == NEC protocol
 
 Let's first take a look at the protocol itself. Since a very good description of this protocol and other IR protocols can be found on https://www.sbprojects.net/knowledge/ir/nec.php[SB-Projects website], I'm not going to dive into details. The most important stuff to know before doing anything can be shortened to a couple of bullet points:
 
-- A single transmission consists of a preamble, device address, negated device address, command and a negated command (in that order).
-- Preamble and data bits are always encoded by a high state pulse and a low state pulse lasting a specific amount of time (shown in the table below).
-- The whole transmission ends with a short high pulse, some sort of stop bit.
+- A single transmission consists of a preamble, device address, negated device address, command and a negated command (in that order). The exception is a command repetition which consists only of a slightly modified preamble.
+- Preamble and data bits are always encoded by a high state pulse and a following low state pulse lasting a specific amount of time (shown in the table below).
+- The transmission always ends with a short high pulse, some sort of stop bit.
+- A window of the transmission starts with the preamble and spans 110 ms. No other transmissions can happen within that window.
 
+.Length of pulses for each transmission part
 |===
 | |High pulse length |Low pulse length
 
 |Preamble
-|9500 μs
+|9000 μs
 |4500 μs
 
 |Bit 0
@@ -30,6 +32,57 @@ Let's first take a look at the protocol itself. Since a very good description of
 |Stop bit
 |560 μs
 |∞ μs
+
+|Repeat last command
+|9000 μs
+|2250 μs
 |===
 
-To actually see this protocol in action, I attached a popular IR receiver TSOP4838 to my logic analyzer and played with a TV remote. Here's what I got:
+To actually see this protocol in action, I attached a popular IR receiver https://www.vishay.com/docs/82459/tsop48.pdf[TSOP4836] to my logic analyzer and played with a TV remote. Here's what I got:
+
+.Data packet captured by logic analyzer
+image::packet.png[xref=image$packet.png]
+
+The center part of the window shows a waveform which is a negated output of TSOP4836. This IR receiver outputs reversed signals by default, so I negated the channel for easier reading. Thankfully the software has a proper protocol decoder, so it displays contents of the transmission right above the waveform. There is no separation for address and negated address, they are simply merged to a single value, but that's fine.
+
+.Repeat packet captured by logic analyzer
+image::repeat.png[]
+
+The bottom part of the window shows captured packets in a beautiful way. As you can tell by different data values, I have clicked four different buttons. The short packets at the end signalizes that I have kept the fourth button down for a while.
+
+== Toys and tools
+
+For this article I'm going to use my immortal _NUCLEO-F103RB_ board. Device configuration and project generation will be done in CubeMX. I'm not a big fan of HAL but this is the _recommended_ way of working with STM32 microcontrollers, especially when more advanced stuff come in to play. Besides, I already know how to write a full code using only registers, it's time to learn HAL eventually.
+
+To receive IR I'm going to use TSOP4836. It's important to keep in mind that this receiver outputs inverted signals, i.e. 0 is high and 1 is low. As long as STM32 is configured properly, this doesn't matter.
+
+== Decoder implementation
+
+We already know that NEC protocol encodes data by simply varying length of pulses. The decoder could be just a simple line polling mechanism that counts how long a pulse lasts, but that's a naive implementation. A much better solution is having a counter that measures these pulses for us in background, so we can analyze the results later in the loop.
+
+=== Device configuration and project setup
+
+Okay, it's time to launch CubeMX and configure the device accordingly to our needs.
+
+==== Timer
+
+.Configuration of a timer
+image::timer-configuration.png[]
+
+For measuring pulses I'll be using TIM2. The clock source must be set to *Internal Clock* and two channels must be combined by choosing *PWM Input on CH1*. You will observe that _Channel1_ and _Channel2_ are now unavailable, and _PA0_ has been designated to PWM input. I also set the prescaler to *64* so the frequency of the timer's clock is 1 MHz. Thanks to this, the timer's counter increments every 1 μs allowing for very easy conversion of counter value to time. The polarity selection must be reversed to comply with TSOP4836.
+
+==== Interrupts
+
+.Configuration of interrupts
+image::interrupts-configuration.png[]
+
+*TIM2 global interrupt* must be enabled so we can react to input capture events. This is the only thing to configure here.
+
+==== Callbacks and framework
+
+.Configuration of callbacks and framework
+image::callbacks-configuration.png[]
+
+The last step is to enable HAL callbacks for TIM peripheral. This can be done in the _Project Manager_ tab, under _Advanced Settings_. I also chose Low-Level drivers for GPIO instead of HAL. This is because GPIO is pretty simple peripheral and HAL adds too much overhead to it. You are free to use HAL for GPIO if you want.
+
+===
