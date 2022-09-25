@@ -1,5 +1,6 @@
 = Parsing NEC protocol on STM32 elegantly
 Itachi
+:xrefstyle: short
 :description: Describing a process of parsing NEC infrared protocol on STM32 microcontroller
 
 NEC is one of infrared protocols used for controlling devices such as TVs or amplifiers. The protocol is very simple, it is easy to decode it on microcontroller even with a naive bit banging method. The goal of this article is to describe a more elegant way of doing this by using timers and input capture function of STM32 microcontroller.
@@ -67,22 +68,36 @@ Okay, it's time to launch CubeMX and configure the device accordingly to our nee
 ==== Timer
 
 .Configuration of a timer
-image::timer-configuration.png[]
+image::timer-configuration.png[xref=image$timer-configuration.png]
 
-For measuring pulses I'll be using TIM2. The clock source must be set to *Internal Clock* and two channels must be combined by choosing *PWM Input on CH1*. You will observe that _Channel1_ and _Channel2_ are now unavailable, and _PA0_ has been designated to PWM input. I also set the prescaler to *64* so the frequency of the timer's clock is 1 MHz. Thanks to this, the timer's counter increments every 1 μs allowing for very easy conversion of counter value to time. The polarity selection must be reversed to comply with TSOP4836.
+[[input_capture_timing]]
+.Timing diagram of input capture for PWM input mode
+image::input-capture.png[xref=image$input-capture.png]
+
+For measuring pulses I'll be using TIM2. The clock source must be set to *Internal Clock* and two channels must be combined by choosing *PWM Input on CH1*. You will observe that _Channel1_ and _Channel2_ are now unavailable, and _PA0_ has been designated to be PWM input. _PA0_ is also the pin to which I attached _OUT_ pin of my TSOP, so anytime a PWM phase comes out of TSOP, it is caught by input capture unit at two points as presented on <<input_capture_timing>>. The value of input capture for channel 1 contains duration of the full phase, whereas for channel 2 it contains duration of the first (high) part. Duration of the low part is obviously: `TIM2_CCR1 - TIM2_CCR2`.
+
+I also set the prescaler to *64* so the frequency of the timer's clock is 1 MHz. Thanks to this, the timer's counter increments every 1 μs allowing for very easy conversion of counter value to time. The polarity selection must be reversed to comply with TSOP specification (high state when 0, low state when 1).
+
 
 ==== Interrupts
 
 .Configuration of interrupts
-image::interrupts-configuration.png[]
+image::interrupts-configuration.png[xref=image$interrupts-configuration.png]
 
 *TIM2 global interrupt* must be enabled so we can react to input capture events. This is the only thing to configure here.
 
 ==== Callbacks and framework
 
 .Configuration of callbacks and framework
-image::callbacks-configuration.png[]
+image::callbacks-configuration.png[xref=image$callbacks-configuration.png]
 
 The last step is to enable HAL callbacks for TIM peripheral. This can be done in the _Project Manager_ tab, under _Advanced Settings_. I also chose Low-Level drivers for GPIO instead of HAL. This is because GPIO is pretty simple peripheral and HAL adds too much overhead to it. You are free to use HAL for GPIO if you want.
 
-===
+The project is ready to be generated, do it as you like it!
+
+== Implementation
+
+Now the fun part begins. There is no one perfect way of implementing NEC decoder, it can be done in hundreds of different ways and each can be equally good. I decided to accomplish this using a _state machine_ approach, simply because I liked this idea.
+
+=== State machine graph
+

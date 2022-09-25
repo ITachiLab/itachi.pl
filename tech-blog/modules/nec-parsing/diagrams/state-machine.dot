@@ -1,0 +1,16 @@
+digraph {
+node [fontname="courier",fontsize=10]
+edge [fontname="courier",fontsize=10]
+Start -> Start [label="!H"]
+Start -> Address [label=H]
+Address : w -> Address [label="0|1\nc < 7"]
+Address : e -> Address [label=H]
+Address -> "~Address" [label="0|1\nc >= 7"]
+"~Address" -> Address [label=H]
+"~Address" -> Command [label="0|1\nc >= 7"]
+Command -> Address[label=H]
+Command : w -> Command [label="0|1\nc < 7"]
+Command : e -> Command [label=H]
+Command -> "~Command" [label="0|1\nc >= 7"]
+"~Command" -> Address [label=H]
+}
