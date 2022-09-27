@@ -14,7 +14,7 @@ content:
           branches: [draft/journal/*]
           start_path: journal
         - url: .
-          start_paths: my-space, tech-blog, journal
+          start_paths: my-space, tech-blog, journal, restricted
 ui:
     bundle:
         url: ui
