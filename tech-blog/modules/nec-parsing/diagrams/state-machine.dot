@@ -1,16 +1,27 @@
 digraph {
-node [fontname="courier",fontsize=10]
-edge [fontname="courier",fontsize=10]
-Start -> Start [label="!H"]
-Start -> Address [label=H]
-Address : w -> Address [label="0|1\nc < 7"]
-Address : e -> Address [label=H]
-Address -> "~Address" [label="0|1\nc >= 7"]
-"~Address" -> Address [label=H]
-"~Address" -> Command [label="0|1\nc >= 7"]
-Command -> Address[label=H]
-Command : w -> Command [label="0|1\nc < 7"]
-Command : e -> Command [label=H]
-Command -> "~Command" [label="0|1\nc >= 7"]
-"~Command" -> Address [label=H]
+    rankdir = "LR"
+    node [fontname = "courier", fontsize = 10]
+    edge [fontname = "courier", fontsize = 10, arrowsize=0.7, colorscheme=set13]
+
+    Start [shape = doublecircle]
+    Start -> Address [label = H, color = 3]
+
+    Address : s -> Address [label = H, color = 1]
+    Address : n -> Address [label = "D\nc < 7", color = 2]
+    Address -> "~Address" [label = "D\nc >= 7", color = 3]
+
+    "~Address" -> Address [label = H, color = 1]
+    "~Address" : n -> "~Address" [label = "D\nc < 7", color = 2]
+    "~Address" -> Command [label = "D\nc >= 7", color = 3]
+
+    Command -> Address [label = H, color = 1]
+    Command : n -> Command [label = "D\nc < 7", color = 2]
+    Command -> "~Command" [label = "D\nc >= 7", color = 3]
+
+    "~Command" -> Address [label = H, color = 1]
+    "~Command" : n -> "~Command" [label = "D\nc < 7", color = 2]
+    "~Command" -> Finish [label = "D\nc >= 7", color = 3]
+
+    Finish -> Address [label = H, color = 1]
+    Finish : n -> Finish [label = R, color = 2]
 }
