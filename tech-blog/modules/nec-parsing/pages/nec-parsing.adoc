@@ -44,12 +44,13 @@ To actually see this protocol in action, I attached a popular IR receiver https:
 .Data packet captured by logic analyzer
 image::packet.png[xref=image$packet.png]
 
+[[repeat_packet]]
+.Repeat packet captured by logic analyzer
+image::repeat.png[xref=image$repeat.png]
+
 The center part of the window shows a waveform which is a negated output of TSOP4836. This IR receiver outputs reversed signals by default, so I negated the channel for easier reading. Thankfully the software has a proper protocol decoder, so it displays contents of the transmission right above the waveform. There is no separation for address and negated address, they are simply merged to a single value, but that's fine.
 
-.Repeat packet captured by logic analyzer
-image::repeat.png[]
-
-The bottom part of the window shows captured packets in a beautiful way. As you can tell by different data values, I have clicked four different buttons. The short packets at the end signalizes that I have kept the fourth button down for a while.
+The bottom part of the window shows captured packets in a beautiful way. As you can tell by different data values, I have clicked four different buttons. The burst of short packets at the end signalizes that I have kept the fourth button down for a while, these are repeat packets which you can also observe on <<repeat_packet>>.
 
 == Toys and tools
 
@@ -93,11 +94,98 @@ image::callbacks-configuration.png[xref=image$callbacks-configuration.png]
 
 The last step is to enable HAL callbacks for TIM peripheral. This can be done in the _Project Manager_ tab, under _Advanced Settings_. I also chose Low-Level drivers for GPIO instead of HAL. This is because GPIO is pretty simple peripheral and HAL adds too much overhead to it. You are free to use HAL for GPIO if you want.
 
-The project is ready to be generated, do it as you like it!
+The project is ready to be generated, do it the way you like it.
+
+==== Input capture setup
+
+CubeMX did most of the configuration for us, but there's one thing that must be configured manually in the code -- input capture. Head over to the generated project and locate a function in which the timer is being initialized; in my case this is: `MX_TIM2_Init`. At the very end of the function body, inside the user code part, add these three lines:
+
+[,c]
+----
+HAL_TIM_RegisterCallback(&htim2, HAL_TIM_IC_CAPTURE_CB_ID, input_capture_callback);
+HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);
+HAL_TIM_IC_Start(&htim2, TIM_CHANNEL_2);
+----
+
+In the first line, a callback function (we don't have it yet) for input capture events is being registered. That means each time there is an input capture event, the `input_capture_callback` function is going to be executed.
+
+In the second line, input capture on channel 1 is enabled in interrupt mode. This means that each time a whole PWM pulse passes through the timer input, an input capture interrupt is generated.
+
+In the third line, input capture on channel 2 is enabled in normal mode. Exactly, no interrupts here. As can be seen on <<input_capture_timing>>, input capture on the second channel is triggered after the first part of the PWM pulse, but this information alone is useless, we need to know the whole pulse length, that's why we have to wait for the whole pulse, which is signalised by input capture on channel 1. Triggering additional interrupt here will be redundant.
 
 == Implementation
 
+
+
 Now the fun part begins. There is no one perfect way of implementing NEC decoder, it can be done in hundreds of different ways and each can be equally good. I decided to accomplish this using a _state machine_ approach, simply because I liked this idea.
 
-=== State machine graph
+=== State machine architecture
+
+.State machine diagram
+image::state-machine.png[]
+
+When parsing a NEC frame, there is very limited number of directions the parser can go:
+
+- when the parser reads valid and expected data, it processes the data and either stays in the same state or advances to the next;
+- when the parser reads header, the parsing process must start from beginning, always;
+- when it reads a complete frame, then it stays in a state in which it can react to repetition commands.
+
+The mysterious letters over arrows are events and conditions:
+
+|===
+|Label |Type |Description
+
+|D
+|Event
+|Data bit received
+
+|H
+|Event
+|Header received
+
+|R
+|Event
+|Repetition received
+
+|c < 7
+|Condition
+|Bit counter is less than 7
+
+|c >= 7
+|Condition
+|Bit counter is greater than or equal to 7
+|===
+
+The general workflow of the machine is:
+
+1. Read input capture times.
+2. Convert read values to an event.
+3. Invoke action appropriate to the current state and the received event.
+4. Transition to other state or stay in the present.
+
+For most of the time, the machine transitions to the next state when the number of bits read in the current state is greater than or equal to 7. The transition always happens soon after reading and invoking an *action* on the last bit of the state that is to be left. The actions that can be invoked are:
+
+|===
+|Action |When |Consequence
+
+|Reset
+|`H`
+|Bit counter and data buffer set to zero
+
+|Store data
+|`D && c < 7`
+|Data bit shifted into the currently processed portion of the frame
+
+|Store data and reset
+|`D && c >= 7`
+|Data bit shifted into the currently processed portion of the frame and _Reset_ action invoked
+
+|Finish
+|`D && c >= 7`, only in _~Command_ state
+|Data bit shifted into the currently processed portion of the frame, _Reset_ and _Send NEC_ actions invoked
+
+|Send NEC
+|`R`, only in _Finish_ state
+|Transmit frame through UART
+|===
 
