@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "itachilab-docs"
+version = "0.1.0"
+description = "Itachi's knowledge base"
+authors = ["Itachi <contact@itachi.pl>"]
+readme = "README.md"
+packages = [{include = "itachilab"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+sphinx = "^5.3.0"
+sphinx-rtd-theme = "^1.1.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
