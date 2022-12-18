@@ -7,8 +7,10 @@ Welcome to Itachi Lab Docs's documentation!
 ===========================================
 
 .. toctree::
+   :hidden:
    :maxdepth: 2
    :caption: Contents:
 
    lacrosse-tx3/lacrosse-tx3.rst
    brainfuck-assembler/brainfuck-assembler.rst
+   initramfs-pi/initramfs-pi.rst
