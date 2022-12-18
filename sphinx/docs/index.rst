@@ -11,12 +11,4 @@ Welcome to Itachi Lab Docs's documentation!
    :caption: Contents:
 
    lacrosse-tx3/lacrosse-tx3.rst
-
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   brainfuck-assembler/brainfuck-assembler.rst
