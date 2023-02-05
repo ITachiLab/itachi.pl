@@ -9,8 +9,15 @@ Welcome to Itachi Lab Docs's documentation!
 .. toctree::
    :hidden:
    :maxdepth: 2
-   :caption: Contents:
+   :caption: General
 
    lacrosse-tx3/lacrosse-tx3.rst
    brainfuck-assembler/brainfuck-assembler.rst
+
+.. toctree::
+   :hidden:
+   :maxdepth: 2
+   :caption: Raspberry Pi
+
    initramfs-pi/initramfs-pi.rst
+   u-boot-on-raspberry/u-boot-on-raspberry.rst
