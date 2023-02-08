@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Itachi Lab Docs'
-copyright = '2022, Itachi'
+copyright = '2023, Itachi'
 author = 'Itachi'
 
 # -- General configuration ---------------------------------------------------
@@ -27,3 +27,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+html_theme_options = {
+    'logo_only': True,
+}
+html_logo = 'logo.png'
