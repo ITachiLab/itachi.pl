@@ -19,6 +19,7 @@ extensions = [
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+highlight_language = 'text'
 
 
 
@@ -31,3 +32,7 @@ html_theme_options = {
     'logo_only': True,
 }
 html_logo = 'logo.png'
+html_title = 'ITachi Lab Docs'
+html_css_files = [
+    'css/custom.css',
+]
