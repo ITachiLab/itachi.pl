@@ -27,3 +27,11 @@ Some of the articles are ancient, written a couple of years ago when I was young
     :caption: Embedded
 
     linker-script/linker-script.rst
+
+.. toctree::
+    :hidden:
+    :maxdepth: 2
+    :caption: Windows
+
+    robocopy/robocopy.rst
+    0x204/0x204.rst
