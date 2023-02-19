@@ -31,6 +31,7 @@ html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 html_theme_options = {
     'logo_only': True,
+    'analytics_id': 'G-7S93SGB655',
 }
 html_logo = 'logo.png'
 html_title = 'ITachi Lab Docs'

@@ -2,6 +2,10 @@
     background-color: #111;
 }
 
+.wy-nav-top {
+	background: #111;
+}
+
 .wy-menu-vertical header, .wy-menu-vertical p.caption {
     color: #ff3434;
 }
