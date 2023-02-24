@@ -10,6 +10,7 @@ packages = [{include = "itachilab"}]
 python = "^3.10"
 sphinx = "^5.3.0"
 sphinx-rtd-theme = "^1.1.1"
+sphinx-sitemap = "^2.5.0"
 
 [build-system]
 requires = ["poetry-core"]

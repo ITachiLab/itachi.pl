@@ -15,6 +15,7 @@ author = 'Itachi'
 
 extensions = [
     'sphinx_rtd_theme',
+    'sphinx_sitemap',
 ]
 
 templates_path = ['_templates']
@@ -36,3 +37,4 @@ html_title = 'ITachi Lab Docs'
 html_css_files = [
     'css/custom.css',
 ]
+html_baseurl = 'https://itachi.pl/'
