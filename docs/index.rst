@@ -26,6 +26,7 @@ Some of the articles are ancient, written a couple of years ago when I was young
     :maxdepth: 2
     :caption: Embedded
 
+    arbitrary-data-in-binary/arbitrary-data-in-binary.rst
     linker-script/linker-script.rst
 
 .. toctree::
