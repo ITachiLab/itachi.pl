@@ -36,3 +36,4 @@ Some of the articles are ancient, written a couple of years ago when I was young
 
     robocopy/robocopy.rst
     0x204/0x204.rst
+    lenovo-bluetooth/lenovo-bluetooth.rst
