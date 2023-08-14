@@ -33,3 +33,7 @@ a:visited {
 .wy-side-nav-search .wy-dropdown > a:hover, .wy-side-nav-search > a:hover {
     background: none;
 }
+
+.rst-content .align-center {
+    margin: 24px auto;
+}
