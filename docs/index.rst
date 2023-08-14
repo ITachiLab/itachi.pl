@@ -18,6 +18,7 @@ Some of the articles are ancient, written a couple of years ago when I was young
     :maxdepth: 2
     :caption: Raspberry Pi
 
+    ebus-raspberry/ebus-raspberry.rst
     initramfs-pi/initramfs-pi.rst
     u-boot-on-raspberry/u-boot-on-raspberry.rst
 
