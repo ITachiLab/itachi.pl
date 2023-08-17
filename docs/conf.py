@@ -16,6 +16,7 @@ author = 'Itachi'
 extensions = [
     'sphinx_rtd_theme',
     'sphinx_sitemap',
+    'sphinx.ext.mathjax',
 ]
 
 templates_path = ['_templates']
