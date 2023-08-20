@@ -35,11 +35,16 @@ To keep it simple stupid, the project is built around a Makefile. So, here is th
    CMSIS_INCLUDES = \
    	 $(ARMCM4_DIR)/Include \
    	 $(CMSIS_DIR)/CMSIS/Core/Include
-   
-   main.hex: main.o
+
+   .PHONY: clean flash
+
+   flash: main.hex
+   	nrfjprog -f nrf52 --program $^ --verify --reset --sectorerase
+
+   main.hex: main.elf
    	arm-none-eabi-objcopy -O ihex $^ $@
    
-   main.o: main.c
+   main.elf: main.c
    	arm-none-eabi-gcc \
    		-mthumb \
    		-mcpu=cortex-m4 \
@@ -50,6 +55,9 @@ To keep it simple stupid, the project is built around a Makefile. So, here is th
    		$(foreach dir,$(CMSIS_INCLUDES),-I$(dir)) \
    		-o $@ \
    		$(CMSIS_SRCS) $^
+
+   clean:
+   	rm -f  *.elf *.hex
 
 This is only a very basic Makefile. Possibly I miss a couple of additional GCC options which will make the binary smaller and optimized better but it's not the goal of this article. 
 
@@ -140,20 +148,20 @@ Yeah, but GPIOs are easy, other things are probably complicated as hell, right? 
         while(1) {}
     }
 
-The code is really simple, it just looks complicated due to my macros (I'm too lazy to copy-paste-change registers constants). In the main method I'm configuring the timer to fire a compare event every second. The formula for calculating the interrupt frequency is simple:
+The code is really simple, it just looks complicated due to my macros (I'm too lazy to copy-paste-change registers constants). In the main method I'm configuring the timer to fire a compare event every second. The formula for calculating the interrupt frequency:
 
 .. math::
 
     f_i = \frac{16\text{MHz}}{CC\cdot 2^P} = \frac{16000000}{125000\cdot 2^7} = 1\text{Hz}
 
-The misty ``*timer_shorts = 1`` enables a shortcut between a compare event and a clear task, i.e. when the compare event happens, the timer is automatically cleared.
+The misty ``*timer_shorts = 1`` enables a shortcut between a compare event and a clear task, i.e. when the compare event happens, the timer is cleared immediately.
 
 Final thoughts
 --------------
 
-I wasn't expecting this will be so simple. I was prepared for a definitely harder way but I must admit I had more troubles with doing the analogous stuff with **STM32F103**. Obviously, if I had to dig deeper and code more complex things, doing this at such low level would be cumbersome. But, if the application is supposed to be simple, like some basic readings, writings, UART, etc., then I will definitely think twice before I begin the project with nRF SDK or nRF Connect on board.
+I was prepared for a harder work but I must admit I had more troubles with doing the analogous stuff with **STM32F103**. Obviously, if I had to dig deeper and code more complex things, doing this at such low level would be cumbersome. But, if the application is supposed to be simple, like some basic readings, writings, UART, etc., then I will definitely think twice before I begin the project with nRF SDK or nRF Connect on board.
 
-Don't get me wrong, I really like the concept of nRF Connect, I'm currently developing a larger project on it, and it's perfect for what I'm going to achieve.
+Don't get me wrong, I really like the concept of nRF Connect, I'm currently developing a bigger project on it, and it serves me very well.
 
 ---
 
