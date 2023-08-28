@@ -23,12 +23,12 @@ Some of the articles are ancient, written a couple of years ago when I was young
 
 .. toctree::
     :hidden:
-    :maxdepth: 2
+    :maxdepth: 3
     :caption: Embedded
 
     arbitrary-data-in-binary/arbitrary-data-in-binary.rst
     linker-script/linker-script.rst
-    nrf-cmsis/nrf-cmsis.rst
+    nrf/index.rst
 
 .. toctree::
     :hidden:
