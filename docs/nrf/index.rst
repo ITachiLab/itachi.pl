@@ -9,5 +9,6 @@ While working on the articles, I'm using the `nRF52840 DK <https://www.nordicsem
     :hidden:
     :maxdepth: 2
 
+    gpio-keys/gpio-keys.rst
     nrf-cmsis/nrf-cmsis.rst
 
